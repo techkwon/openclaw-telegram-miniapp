@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Hermes Terminal</title>
+<title>OpenClaw Terminal</title>
 <script src="https://telegram.org/js/telegram-web-app.js?62"></script>
 <style>
 :root {
@@ -663,9 +663,9 @@ body {
   <div style="font-size:32px;margin-bottom:8px">&#128274;</div>
   <div style="font-size:16px;font-weight:600;margin-bottom:4px">Access Required</div>
   <div style="font-size:13px;color:var(--hint);margin-bottom:24px;line-height:1.5">
-    Enter your Hermes API token to continue.<br>Find it in <code>~/.hermes/.env</code> as <code>API_SERVER_KEY</code>.
+    Enter your OpenClaw gateway token to continue.<br>Use your gateway bearer token or password-style shared secret.
   </div>
-  <input type="password" id="token-input" placeholder="API_SERVER_KEY" autocomplete="off"
+  <input type="password" id="token-input" placeholder="OPENCLAW_GATEWAY_TOKEN" autocomplete="off"
     style="width:100%;max-width:340px;padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:14px;font-family:monospace;outline:none;margin-bottom:12px;">
   <button onclick="submitToken()" id="token-submit"
     style="width:100%;max-width:340px;padding:12px;border-radius:10px;background:#2e7d32;color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;">
@@ -690,7 +690,7 @@ body {
     <!-- Populated by JS -->
     <div style="padding:20px;color:var(--hint);text-align:center;font-size:12px" id="menu-loading">Loading...</div>
   </div>
-  <div class="drawer-footer">Hermes v3 &mdash; tap a command to run</div>
+  <div class="drawer-footer">OpenClaw mini app preview &mdash; tap a command to run</div>
 </div>
 
 <!-- HEADER BAR -->
@@ -702,7 +702,7 @@ body {
       <line x1="3" y1="18" x2="21" y2="18"/>
     </svg>
   </button>
-  <div class="header-title">Hermes</div>
+  <div class="header-title">OpenClaw</div>
   <div class="header-right">
     <div style="display:flex;align-items:center;gap:5px">
       <div class="conn-dot" id="conn-dot"></div>
@@ -1004,8 +1004,8 @@ async function submitToken() {
     if (r.ok) {
       apiToken = token;
       // Store in CloudStorage (Telegram-native) and localStorage (browser fallback)
-      if (CS) { try { await CS.setItem('hermes_api_token', token); } catch (_) {} }
-      try { localStorage.setItem('hermes_api_token', token); } catch (_) {}
+      if (CS) { try { await CS.setItem('openclaw_api_token', token); } catch (_) {} }
+      try { localStorage.setItem('openclaw_api_token', token); } catch (_) {}
       hideTokenGate();
       initAfterAuth();
     } else {
@@ -1031,7 +1031,7 @@ function initAfterAuth() {
   loadModelInfo();
   startDurationTimer();
   loadCommands();
-  addMsg('system', 'Hermes Terminal — type /help or tap menu for commands.');
+  addMsg('system', 'OpenClaw Terminal — type /help or tap menu for commands.');
   input.focus();
   setInterval(async () => {
     if (activeTab === 'status') loadStatus();
@@ -1069,7 +1069,8 @@ function esc(s) {
 function headers(extra) {
   const h = { 'Content-Type': 'application/json' };
   if (isTelegram && WebApp?.initData) h['X-Telegram-Init-Data'] = WebApp.initData;
-  if (sessionId) h['X-Hermes-Session-Id'] = sessionId;
+  if (sessionId) h['x-openclaw-session-id'] = sessionId;
+  h['x-openclaw-message-channel'] = isTelegram ? 'telegram' : 'webchat';
   if (apiToken) h['Authorization'] = 'Bearer ' + apiToken;
   return { ...h, ...(extra||{}) };
 }
@@ -1479,7 +1480,7 @@ function startDurationTimer() {
 
 async function loadModelInfo() {
   try {
-    _modelInfo = await api('/api/model-info');
+    _modelInfo = { model: 'openclaw/default', model_short: 'openclaw/default', provider: 'gateway', context_length: null };
     updateContextBar();
   } catch (_) {}
 }
@@ -1544,7 +1545,7 @@ async function sendMessage() {
 
   try {
     const body = {
-      model: 'hermes-agent',
+      model: 'openclaw/default',
       messages: [{ role: 'user', content: msgContent }],
       stream: true
     };
@@ -1554,7 +1555,7 @@ async function sendMessage() {
       headers: headers(),
       body: JSON.stringify(body),
     });
-    const sid = r.headers.get('X-Hermes-Session-Id');
+    const sid = r.headers.get('x-openclaw-session-id');
     if (sid) { sessionId = sid; persistSession(); }
     if (!r.ok) {
       rmTyping();
@@ -1618,7 +1619,7 @@ async function streamResponse(r) {
         if (d === '[DONE]') break;
         try {
           const j = JSON.parse(d);
-          if (j.event === 'hermes.tool_progress') {
+          if (j.event === 'hermes.tool_progress' || j.event === 'tool_progress') {
             const p = j.data;
             addToolMsg(p.tool, p.emoji, p.label, 'running...');
             continue;
@@ -1674,12 +1675,12 @@ async function streamResponse(r) {
 // ─── SESSION ────────────────────────────────────────────────────────────────
 async function persistSession() {
   if (!CS || !sessionId) return;
-  try { await CS.setItem('hermes_sid', sessionId); } catch (_) {}
+  try { await CS.setItem('openclaw_sid', sessionId); } catch (_) {}
 }
 
 async function loadSession() {
   if (!CS) return null;
-  try { return await CS.getItem('hermes_sid'); } catch (_) { return null; }
+  try { return await CS.getItem('openclaw_sid'); } catch (_) { return null; }
 }
 
 // ─── STATUS ────────────────────────────────────────────────────────────────
@@ -1783,7 +1784,7 @@ async function loadStatus() {
     `;
   } catch (e) {
     bar.innerHTML = `<div class="status-chip error"><span class="status-dot"></span>Offline</div>`;
-    content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}</div></div>`;
+    content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}<br><br>Status and cron panels need OpenClaw-specific adapter endpoints or a Control UI bridge.</div></div>`;
   }
 }
 
@@ -1793,6 +1794,7 @@ function quickCmd(cmd) { switchTab('terminal'); input.value = cmd + ' '; sendMes
 async function loadCron() {
   const content = document.getElementById('cron-content');
   try {
+    throw new Error('Cron management needs an OpenClaw adapter layer or Control UI RPC bridge.');
     const raw = await api('/api/jobs');
     const jobs = raw?.jobs || raw || [];
     if (!Array.isArray(jobs) || !jobs.length) {
@@ -2016,8 +2018,8 @@ window.cmdList = [
   if (!isTelegram) {
     // Try CloudStorage first (Telegram-native), then localStorage (browser)
     let savedToken = null;
-    if (CS) { try { savedToken = await CS.getItem('hermes_api_token'); } catch (_) {} }
-    if (!savedToken) { try { savedToken = localStorage.getItem('hermes_api_token'); } catch (_) {} }
+    if (CS) { try { savedToken = await CS.getItem('openclaw_api_token'); } catch (_) {} }
+    if (!savedToken) { try { savedToken = localStorage.getItem('openclaw_api_token'); } catch (_) {} }
     if (savedToken) {
       apiToken = savedToken;
       // Resume init with stored token
@@ -2040,19 +2042,19 @@ window.cmdList = [
 
     // Load saved Bearer token (from previous browser login, stored in CloudStorage)
     if (CS) {
-      try { const t = await CS.getItem('hermes_api_token'); if (t) apiToken = t; } catch (_) {}
+      try { const t = await CS.getItem('openclaw_api_token'); if (t) apiToken = t; } catch (_) {}
     }
 
     // Load existing session or create a new one immediately (before user can send)
     let savedSid = null;
     if (CS) {
-      try { savedSid = await CS.getItem('hermes_sid'); } catch (_) {}
+      try { savedSid = await CS.getItem('openclaw_sid'); } catch (_) {}
     }
     if (!savedSid) {
       const token = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
       sessionId = 'miniapp-' + token;
       if (CS) {
-        try { await CS.setItem('hermes_sid', sessionId); } catch (_) {}
+        try { await CS.setItem('openclaw_sid', sessionId); } catch (_) {}
       }
     } else {
       sessionId = savedSid;
@@ -2067,7 +2069,7 @@ window.cmdList = [
     loadModelInfo();
     startDurationTimer();
 
-    addMsg('system', 'Hermes Terminal — type /help or tap menu for commands.');
+    addMsg('system', 'OpenClaw Terminal — type /help or tap menu for commands.');
     input.focus();
 
     setInterval(async () => {
@@ -2075,7 +2077,7 @@ window.cmdList = [
       if (activeTab === 'cron') loadCron();
       await checkConn();
     }, 30000);
-  } catch(e) { console.error('[Hermes TUI] init error:', e); }
+  } catch(e) { console.error('[OpenClaw TUI] init error:', e); }
 })();
 </script>
 </body>

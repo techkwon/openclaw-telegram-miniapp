@@ -1,0 +1,18 @@
+# Example systemd user unit for an OpenClaw gateway deployment
+[Unit]
+Description=OpenClaw Gateway
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env openclaw gateway run
+WorkingDirectory=%h
+Environment="TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN_HERE"
+Environment="TELEGRAM_OWNER_ID=YOUR_USER_ID_HERE"
+Environment="TELEGRAM_ALLOWED_USERS=YOUR_USER_ID_HERE"
+Environment="OPENCLAW_GATEWAY_TOKEN=YOUR_GATEWAY_TOKEN_HERE"
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
