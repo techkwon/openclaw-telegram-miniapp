@@ -1,0 +1,18 @@
+[Unit]
+Description=OpenClaw Telegram Mini App Bridge
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/openclaw-telegram-miniapp
+ExecStart=/usr/bin/env python3 %h/openclaw-telegram-miniapp/bridge/openclaw_miniapp_bridge.py
+Environment="MINIAPP_HOST=127.0.0.1"
+Environment="MINIAPP_PORT=8765"
+Environment="OPENCLAW_BASE_URL=http://127.0.0.1:18789"
+Environment="MINIAPP_SHARED_TOKEN=YOUR_MINIAPP_SHARED_TOKEN"
+Environment="OPENCLAW_GATEWAY_TOKEN=YOUR_GATEWAY_TOKEN"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -22,10 +22,33 @@ Current first-pass scope:
 
 ## What still needs OpenClaw-specific work
 
-- cron tab currently needs an **OpenClaw adapter layer** or **Control UI RPC bridge**
-- model/session usage/status cards need richer OpenClaw-native endpoints or WS integration
 - Telegram Mini App auth should be matched to the chosen OpenClaw gateway exposure pattern
 - deployment docs should be rewritten around OpenClaw gateway config, not Hermes service layout
+- richer OpenClaw-native status and usage data can still be improved beyond the current bridge
+
+## Bridge status
+
+This fork now includes a small bridge server at `bridge/openclaw_miniapp_bridge.py` that provides:
+- static mini app serving
+- `/api/model-info`
+- `/api/session-usage`
+- `/api/jobs` CRUD through `openclaw cron`
+- `/api/command` lightweight compatibility output
+- `/v1/chat/completions` proxying
+
+Important: chat proxying requires the OpenClaw gateway HTTP chat endpoint to be enabled:
+
+```json5
+{
+  gateway: {
+    http: {
+      endpoints: {
+        chatCompletions: { enabled: true }
+      }
+    }
+  }
+}
+```
 
 ## Development approach
 
@@ -37,10 +60,10 @@ We are keeping license obligations intact:
 
 ## Suggested next milestones
 
-1. add an OpenClaw cron bridge
-2. add status/model/session usage bridge
-3. replace remaining Hermes strings in docs/demo assets
-4. add Telegram deployment instructions for OpenClaw gateway + tunnel
+1. enable and verify `gateway.http.endpoints.chatCompletions.enabled=true`
+2. replace remaining Hermes strings in docs/demo assets
+3. add Telegram deployment instructions for OpenClaw gateway + tunnel
+4. add stronger Telegram Mini App auth verification on the bridge side
 
 ## Upstream
 
