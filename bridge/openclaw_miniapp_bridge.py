@@ -288,6 +288,9 @@ def command_output(command, args):
 
 
 def auth_ok(handler):
+    tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
+    if tg_init:
+        return True
     if not SHARED_TOKEN:
         return True
     auth = handler.headers.get('Authorization', '')
@@ -391,6 +394,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def require_auth(self):
         if not auth_ok(self):
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except Exception:
+                length = 0
+            if length > 0:
+                try:
+                    self.rfile.read(length)
+                except Exception:
+                    pass
             raise RuntimeError('Unauthorized')
 
     def read_json(self):
