@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>ai.openclaw.miniapp-bridge</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/zsh</string>
+      <string>/Users/techkwon/.openclaw/workspace/openclaw-telegram-miniapp/bridge/run_bridge.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/techkwon/.openclaw/workspace/openclaw-telegram-miniapp</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>HOME</key>
+      <string>/Users/techkwon</string>
+      <key>PATH</key>
+      <string>/usr/local/bin:/Users/techkwon/.local/bin:/Users/techkwon/.npm-global/bin:/Users/techkwon/bin:/Users/techkwon/.volta/bin:/Users/techkwon/.asdf/shims:/Users/techkwon/.bun/bin:/Users/techkwon/Library/Application Support/fnm/aliases/default/bin:/Users/techkwon/.fnm/aliases/default/bin:/Users/techkwon/Library/pnpm:/Users/techkwon/.local/share/pnpm:/opt/homebrew/bin:/usr/bin:/bin</string>
+      <key>MINIAPP_HOST</key>
+      <string>127.0.0.1</string>
+      <key>MINIAPP_PORT</key>
+      <string>8765</string>
+      <key>OPENCLAW_BASE_URL</key>
+      <string>http://127.0.0.1:18789</string>
+      <key>MINIAPP_SHARED_TOKEN</key>
+      <string>dev-miniapp-token</string>
+      <key>SECRETS_FILE</key>
+      <string>/Users/techkwon/.openclaw/secrets.store.json</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/techkwon/.openclaw/logs/openclaw-miniapp-bridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/techkwon/.openclaw/logs/openclaw-miniapp-bridge.err.log</string>
+  </dict>
+</plist>
