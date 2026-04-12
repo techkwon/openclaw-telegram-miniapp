@@ -1691,12 +1691,23 @@ async function loadSession() {
   try { return await CS.getItem('openclaw_sid'); } catch (_) { return null; }
 }
 
+function sessionIdText(value) {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    if (typeof value.session_id === 'string') return value.session_id;
+    if (typeof value.id === 'string') return value.id;
+    try { return JSON.stringify(value); } catch (_) { return String(value); }
+  }
+  return String(value);
+}
+
 // ─── STATUS ────────────────────────────────────────────────────────────────
 async function loadStatus() {
   const bar = document.getElementById('status-bar');
   const content = document.getElementById('status-content');
   bar.innerHTML = `<div class="status-chip warn"><span class="status-dot"></span>불러오는 중...</div>`;
-  content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">Fetching system info...</div>`;
+  content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">상태 정보를 불러오는 중...</div>`;
 
   try {
     const [hr, pr] = await Promise.allSettled([
@@ -1713,12 +1724,12 @@ async function loadStatus() {
     const uptime = h?.uptime;
     const load = h?.load_avg;
 
-    let uptimeStr = 'N/A';
+    let uptimeStr = '정보 없음';
     if (uptime) {
       const days = Math.floor(uptime / 86400);
       const hrs = Math.floor((uptime % 86400) / 3600);
       const mins = Math.floor((uptime % 3600) / 60);
-      uptimeStr = days > 0 ? `${days}d ${hrs}h` : hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+      uptimeStr = days > 0 ? `${days}일 ${hrs}시간` : hrs > 0 ? `${hrs}시간 ${mins}분` : `${mins}분`;
     }
 
     const cpuClass = cpuGauge == null ? '' : cpuGauge > 80 ? 'high' : cpuGauge > 50 ? 'mid' : 'low';
@@ -1738,30 +1749,30 @@ async function loadStatus() {
     // ── Section 1: System Health + Processes ────────────────────────────
     content.innerHTML = `
       <div class="section">
-        <div class="section-header"><h2>System Health</h2></div>
+        <div class="section-header"><h2>시스템 상태</h2></div>
         ${cpuGauge != null ? `<div class="gauge-row">
           <div class="gauge-label"><span>CPU</span><span>${cpuGauge}%</span></div>
           <div class="gauge-bar"><div class="gauge-fill ${cpuClass}" style="width:${cpuGauge}%"></div></div>
         </div>` : ''}
         ${memPct != null ? `<div class="gauge-row">
-          <div class="gauge-label"><span>Memory</span><span>${memPct}%</span></div>
+          <div class="gauge-label"><span>메모리</span><span>${memPct}%</span></div>
           <div class="gauge-bar"><div class="gauge-fill ${memClass}" style="width:${memPct}%"></div></div>
         </div>` : ''}
         ${diskPct != null ? `<div class="gauge-row">
-          <div class="gauge-label"><span>Disk</span><span>${diskPct}%</span></div>
+          <div class="gauge-label"><span>디스크</span><span>${diskPct}%</span></div>
           <div class="gauge-bar"><div class="gauge-fill ${diskClass}" style="width:${diskPct}%"></div></div>
         </div>` : ''}
-        <div class="item"><div class="item-label">Uptime</div><div class="item-value">${uptimeStr}</div></div>
-        ${load ? `<div class="item"><div class="item-label">Load Avg</div><div class="item-value muted">${esc(Array.isArray(load) ? load.join(', ') : load)}</div></div>` : ''}
+        <div class="item"><div class="item-label">업타임</div><div class="item-value">${uptimeStr}</div></div>
+        ${load ? `<div class="item"><div class="item-label">로드 평균</div><div class="item-value muted">${esc(Array.isArray(load) ? load.join(', ') : load)}</div></div>` : ''}
         ${processes.length ? `
           <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-            <div class="item" style="margin-bottom:4px"><div class="item-label">Processes</div><div class="item-value">${processes.length}</div></div>
+            <div class="item" style="margin-bottom:4px"><div class="item-label">프로세스</div><div class="item-value">${processes.length}</div></div>
             <div class="process-list">
               ${processes.slice(0, 8).map(p => `
                 <div class="process-row">
                   <div class="proc-dot ${p.running ? 'running' : 'stopped'}"></div>
                   <div class="proc-name">${esc(p.name || p.pid || '?')}</div>
-                  <div class="proc-meta">${p.cpu ? p.cpu + '% CPU' : ''} ${p.mem ? p.mem + '% MEM' : ''}</div>
+                  <div class="proc-meta">${p.cpu ? p.cpu + '% CPU' : ''} ${p.mem ? p.mem + '% 메모리' : ''}</div>
                 </div>
               `).join('')}
             </div>
@@ -1769,25 +1780,25 @@ async function loadStatus() {
       </div>
 
       <div class="section">
-        <div class="section-header"><h2>Quick Actions</h2></div>
+        <div class="section-header"><h2>빠른 실행</h2></div>
         <div class="quick-grid">
-          <button class="qbtn reload" onclick="quickCmd('/status')">Refresh</button>
-          <button class="qbtn" onclick="quickCmd('/cron list')">Cron Jobs</button>
-          <button class="qbtn" onclick="quickCmd('/model')">Model</button>
-          <button class="qbtn" onclick="quickCmd('/help')">Help</button>
-          <button class="qbtn" onclick="switchTab('terminal'); input.value='/new '; input.focus();">New Session</button>
-          <button class="qbtn danger" onclick="quickCmd('/stop')">Stop All</button>
+          <button class="qbtn reload" onclick="quickCmd('/status')">새로고침</button>
+          <button class="qbtn" onclick="quickCmd('/cron list')">크론 작업</button>
+          <button class="qbtn" onclick="quickCmd('/model')">모델</button>
+          <button class="qbtn" onclick="quickCmd('/help')">도움말</button>
+          <button class="qbtn" onclick="switchTab('terminal'); input.value='/new '; input.focus();">새 세션</button>
+          <button class="qbtn danger" onclick="quickCmd('/stop')">전체 중지</button>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-header"><h2>Account & Debug</h2></div>
-        <div class="item"><div class="item-label">Model</div><div class="item-value">${_modelInfo ? esc(_modelInfo.model_short) + ' <span style="color:var(--hint)">via ' + esc(_modelInfo.provider || '?') + '</span>' : '—'}</div></div>
-        <div class="item"><div class="item-label">Context</div><div class="item-value">${_modelInfo?.context_length ? _fmtTokens(_sessionUsage.prompt_tokens) + ' / ' + _fmtTokens(_modelInfo.context_length) + ' used' : '—'}</div></div>
-        <div class="item"><div class="item-label">Session tokens</div><div class="item-value">${_sessionUsage.total_tokens ? _fmtTokens(_sessionUsage.total_tokens) : '0'}</div></div>
-        <div class="item"><div class="item-label">Auth mode</div><div class="item-value">${isTelegram ? 'Telegram Ed25519' : apiToken ? 'Bearer token' : 'None'}</div></div>
-        <div class="item"><div class="item-label">User</div><div class="item-value">${WebApp?.initDataUnsafe?.user ? esc(WebApp.initDataUnsafe.user.first_name) + ' (id: ' + WebApp.initDataUnsafe.user.id + ')' : userId || '—'}</div></div>
-        <div class="item"><div class="item-label">Session ID</div><div class="item-value" style="font-size:10px;word-break:break-all">${sessionId || '—'}</div></div>
+        <div class="section-header"><h2>계정 및 디버그</h2></div>
+        <div class="item"><div class="item-label">모델</div><div class="item-value">${_modelInfo ? esc(_modelInfo.model_short) + ' <span style="color:var(--hint)">via ' + esc(_modelInfo.provider || '?') + '</span>' : '—'}</div></div>
+        <div class="item"><div class="item-label">컨텍스트</div><div class="item-value">${_modelInfo?.context_length ? _fmtTokens(_sessionUsage.prompt_tokens) + ' / ' + _fmtTokens(_modelInfo.context_length) + ' 사용 중' : '—'}</div></div>
+        <div class="item"><div class="item-label">세션 토큰</div><div class="item-value">${_sessionUsage.total_tokens ? _fmtTokens(_sessionUsage.total_tokens) : '0'}</div></div>
+        <div class="item"><div class="item-label">인증 방식</div><div class="item-value">${isTelegram ? 'Telegram Ed25519' : apiToken ? 'Bearer token' : '없음'}</div></div>
+        <div class="item"><div class="item-label">사용자</div><div class="item-value">${WebApp?.initDataUnsafe?.user ? esc(WebApp.initDataUnsafe.user.first_name) + ' (id: ' + WebApp.initDataUnsafe.user.id + ')' : userId || '—'}</div></div>
+        <div class="item"><div class="item-label">세션 ID</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(sessionIdText(sessionId))}</div></div>
       </div>
     `;
   } catch (e) {
@@ -1802,7 +1813,6 @@ function quickCmd(cmd) { switchTab('terminal'); input.value = cmd + ' '; sendMes
 async function loadCron() {
   const content = document.getElementById('cron-content');
   try {
-    throw new Error('Cron management needs an OpenClaw adapter layer or Control UI RPC bridge.');
     const raw = await api('/api/jobs');
     const jobs = raw?.jobs || raw || [];
     if (!Array.isArray(jobs) || !jobs.length) {
@@ -1820,7 +1830,7 @@ async function loadCron() {
     let html = '';
     if (upcoming.length) {
       html += `<div class="cron-timeline">
-        <div class="tl-header">Next Scheduled</div>`;
+        <div class="tl-header">예정된 실행</div>`;
       upcoming.forEach(j => {
         const nextDate = new Date(j.next_run_at);
         const timeStr = nextDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1841,25 +1851,25 @@ async function loadCron() {
 
     html += jobs.map(j => {
       const active = j.enabled && j.state !== 'paused';
-      const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+      const last = j.last_run_at ? new Date(j.last_run_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '실행 기록 없음';
       const st = j.last_status || '';
       const stc = st === 'ok' ? 'positive' : st === 'error' ? 'negative' : 'muted';
       const sched = j.schedule_display || (typeof j.schedule === 'string' ? j.schedule : '');
       const rep = j.repeat;
       let repStr = '';
-      if (rep) repStr = rep.times ? ` (${rep.completed || 0}/${rep.times})` : ` (${rep.completed || 0} runs)`;
+      if (rep) repStr = rep.times ? ` (${rep.completed || 0}/${rep.times})` : ` (${rep.completed || 0}회 실행)`;
       return `<div class="cron-card" id="cron-card-${j.id}">
         <div class="cron-name">
           <span class="process-dot ${active ? 'running' : 'stopped'}"></span>
           ${esc(j.name || (j.id || '').slice(0, 8))}
         </div>
         <div class="cron-schedule">${esc(sched)}</div>
-        <div class="cron-meta">Last: ${last} &middot; <span class="item-value ${stc}">${esc(st)}</span>${esc(repStr)}</div>
+        <div class="cron-meta">최근 실행: ${last} &middot; <span class="item-value ${stc}">${esc(st)}</span>${esc(repStr)}</div>
         <div class="cron-actions">
           ${active
             ? `<button class="cron-btn pause" onclick="cronAct('${j.id}','pause')">일시정지</button>`
             : `<button class="cron-btn resume" onclick="cronAct('${j.id}','resume')">재개</button>`}
-          <button class="cron-btn run" onclick="cronAct('${j.id}','run')">Run Now</button>
+          <button class="cron-btn run" onclick="cronAct('${j.id}','run')">지금 실행</button>
           <button class="cron-btn edit" onclick="editCronJob('${j.id}')">&#9998;</button>
           <button class="cron-btn delete" onclick="confirmDeleteCron('${j.id}','${esc(j.name || j.id)}')">&#128465;</button>
         </div>
