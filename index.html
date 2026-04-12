@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>OpenClaw Terminal</title>
+<title>OpenClaw 터미널</title>
 <script src="https://telegram.org/js/telegram-web-app.js?62"></script>
 <style>
 :root {
@@ -661,15 +661,15 @@ body {
 <!-- TOKEN GATE (browser-only, hidden for Telegram) -->
 <div id="token-gate" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg,#0c0c10);flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;">
   <div style="font-size:32px;margin-bottom:8px">&#128274;</div>
-  <div style="font-size:16px;font-weight:600;margin-bottom:4px">Access Required</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:4px">접속 권한 필요</div>
   <div style="font-size:13px;color:var(--hint);margin-bottom:24px;line-height:1.5">
-    Enter your OpenClaw gateway token to continue.<br>Use your gateway bearer token or password-style shared secret.
+    계속하려면 OpenClaw gateway 토큰을 입력하세요.<br>gateway bearer token 또는 password 형식의 shared secret을 사용하면 됩니다.
   </div>
   <input type="password" id="token-input" placeholder="OPENCLAW_GATEWAY_TOKEN" autocomplete="off"
     style="width:100%;max-width:340px;padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:14px;font-family:monospace;outline:none;margin-bottom:12px;">
   <button onclick="submitToken()" id="token-submit"
     style="width:100%;max-width:340px;padding:12px;border-radius:10px;background:#2e7d32;color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;">
-    Connect
+    연결하기
   </button>
   <div id="token-error" style="color:#ef5350;font-size:12px;margin-top:12px;display:none"></div>
 </div>
@@ -680,17 +680,17 @@ body {
 <!-- MENU DRAWER -->
 <div class="menu-drawer" id="menu-drawer">
   <div class="drawer-header">
-    <div class="drawer-title">Command Menu</div>
+    <div class="drawer-title">명령 메뉴</div>
     <button class="drawer-close" onclick="closeDrawer()">&#10005;</button>
   </div>
   <div class="drawer-search">
-    <input type="text" id="menu-search" placeholder="Filter commands..." oninput="filterMenu(this.value)">
+    <input type="text" id="menu-search" placeholder="명령어 찾기..." oninput="filterMenu(this.value)">
   </div>
   <div class="drawer-scroll" id="drawer-scroll">
     <!-- Populated by JS -->
-    <div style="padding:20px;color:var(--hint);text-align:center;font-size:12px" id="menu-loading">Loading...</div>
+    <div style="padding:20px;color:var(--hint);text-align:center;font-size:12px" id="menu-loading">불러오는 중...</div>
   </div>
-  <div class="drawer-footer">OpenClaw mini app preview &mdash; tap a command to run</div>
+  <div class="drawer-footer">OpenClaw 미니앱 미리보기, 실행할 명령을 눌러보세요</div>
 </div>
 
 <!-- HEADER BAR -->
@@ -726,13 +726,13 @@ body {
 <!-- TAB BAR -->
 <div class="tab-bar">
   <div class="tab active" data-panel="terminal" onclick="switchTab('terminal')">
-    <span class="tab-icon">&gt;_</span>Terminal
+    <span class="tab-icon">&gt;_</span>터미널
   </div>
   <div class="tab" data-panel="status" onclick="switchTab('status')">
-    <span class="tab-icon">&#9679;</span>Status
+    <span class="tab-icon">&#9679;</span>상태
   </div>
   <div class="tab" data-panel="cron" onclick="switchTab('cron')">
-    <span class="tab-icon">&#9201;</span>Cron
+    <span class="tab-icon">&#9201;</span>크론
   </div>
 </div>
 
@@ -743,18 +743,18 @@ body {
     <button class="scroll-btn" id="scroll-btn" onclick="scrollToBottom(true)">&#8595;</button>
   </div>
   <div class="retry-bar" id="retry-bar">
-    <span id="retry-msg">Request failed</span>
-    <button onclick="retryLast()">Retry</button>
+    <span id="retry-msg">요청이 실패했습니다</span>
+    <button onclick="retryLast()">다시 시도</button>
   </div>
   <div class="cmd-suggest" id="cmd-suggest"></div>
   <div class="chat-input-bar">
-    <button class="attach-btn" id="attach-btn" onclick="triggerAttach()" title="Attach file">&#128206;</button>
+    <button class="attach-btn" id="attach-btn" onclick="triggerAttach()" title="파일 첨부">&#128206;</button>
     <input type="file" id="file-input" class="hidden-input" accept="image/*,.pdf,.csv,.txt,.json" onchange="handleFileAttach(this)">
     <div class="attach-preview" id="attach-preview" style="display:none">
       <span id="attach-name" class="attach-name"></span>
-      <button class="attach-remove" onclick="removeAttachment()" title="Remove">&#10005;</button>
+      <button class="attach-remove" onclick="removeAttachment()" title="제거">&#10005;</button>
     </div>
-    <textarea class="chat-input" id="chat-input" placeholder="Message or /command..." rows="1"
+    <textarea class="chat-input" id="chat-input" placeholder="메시지 또는 /명령어..." rows="1"
       oninput="onInputChange(this)" onkeydown="handleKey(event)"></textarea>
     <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9654;</button>
   </div>
@@ -769,41 +769,41 @@ body {
 <!-- CRON -->
 <div id="cron-panel" class="panel">
   <div class="panel-scroll" id="cron-content" style="padding-top:12px"></div>
-  <button class="cron-fab" onclick="openCronModal()" title="New job">+</button>
+  <button class="cron-fab" onclick="openCronModal()" title="새 작업">+</button>
 </div>
 
 <!-- CRON MODAL -->
 <div class="cron-modal-overlay" id="cron-modal-overlay" onclick="closeCronModal(event)">
   <div class="cron-modal" id="cron-modal" onclick="event.stopPropagation()">
     <div class="cron-modal-header">
-      <span id="cron-modal-title">New Cron Job</span>
+      <span id="cron-modal-title">새 크론 작업</span>
       <button onclick="closeCronModal()">&#10005;</button>
     </div>
     <div class="cron-modal-body">
       <div class="cron-field">
-        <label>Name</label>
-        <input id="cron-field-name" placeholder="Daily summary" maxlength="200">
+        <label>이름</label>
+        <input id="cron-field-name" placeholder="매일 요약" maxlength="200">
       </div>
       <div class="cron-field">
-        <label>Schedule</label>
+        <label>일정</label>
         <input id="cron-field-schedule" placeholder="0 9 * * *">
         <div class="cron-chips">
           <button class="cron-chip" onclick="setSchedule('30m')">30m</button>
           <button class="cron-chip" onclick="setSchedule('1h')">1h</button>
           <button class="cron-chip" onclick="setSchedule('every 2h')">2h</button>
-          <button class="cron-chip" onclick="setSchedule('0 9 * * *')">9am daily</button>
-          <button class="cron-chip" onclick="setSchedule('0 0 * * 0')">Weekly</button>
+          <button class="cron-chip" onclick="setSchedule('0 9 * * *')">매일 9시</button>
+          <button class="cron-chip" onclick="setSchedule('0 0 * * 0')">매주</button>
         </div>
       </div>
       <div class="cron-field">
-        <label>Prompt</label>
-        <textarea id="cron-field-prompt" rows="4" placeholder="Task instruction (self-contained — no chat context)" maxlength="5000"></textarea>
+        <label>프롬프트</label>
+        <textarea id="cron-field-prompt" rows="4" placeholder="작업 지시문 (대화 문맥 없이도 이해 가능하게)" maxlength="5000"></textarea>
       </div>
       <div class="cron-field">
-        <label>Repeat <span style="font-weight:400;text-transform:none">(empty = forever)</span></label>
+        <label>반복 횟수 <span style="font-weight:400;text-transform:none">(비우면 계속)</span></label>
         <input id="cron-field-repeat" type="number" min="1" placeholder="∞">
       </div>
-      <button class="cron-submit-btn" id="cron-submit-btn" onclick="submitCronJob()">Create Job</button>
+      <button class="cron-submit-btn" id="cron-submit-btn" onclick="submitCronJob()">작업 만들기</button>
     </div>
   </div>
 </div>
@@ -813,9 +813,9 @@ body {
 
 <!-- MSG POPUP -->
 <div class="msg-popup" id="msg-popup">
-  <div class="msg-popup-item" onclick="copyMsg()"><span class="icon">&#128203;</span>Copy</div>
-  <div class="msg-popup-item" onclick="retryMsg()"><span class="icon">&#8635;</span>Retry</div>
-  <div class="msg-popup-item danger" onclick="deleteMsg()"><span class="icon">&#128465;</span>Delete</div>
+  <div class="msg-popup-item" onclick="copyMsg()"><span class="icon">&#128203;</span>복사</div>
+  <div class="msg-popup-item" onclick="retryMsg()"><span class="icon">&#8635;</span>다시 시도</div>
+  <div class="msg-popup-item danger" onclick="deleteMsg()"><span class="icon">&#128465;</span>삭제</div>
 </div>
 
 <script>
@@ -903,7 +903,7 @@ function filterMenu(q) {
 function renderDrawer(commands, query) {
   const el = document.getElementById('drawer-scroll');
   if (!commands.length) {
-    el.innerHTML = '<div style="padding:20px;color:var(--hint);text-align:center;font-size:12px">No commands found</div>';
+    el.innerHTML = '<div style="padding:20px;color:var(--hint);text-align:center;font-size:12px">명령어가 없습니다</div>';
     return;
   }
 
@@ -923,6 +923,14 @@ function renderDrawer(commands, query) {
     cats[cat].push(c);
   });
 
+  const categoryLabel = {
+    core: '기본', runtime: '실행 상태', cron: '크론',
+    Session: '세션', Configuration: '설정', Tools: '도구',
+    Skills: '스킬', Model: '모델', Cron: '크론',
+    Memory: '메모리', System: '시스템', Trading: '트레이딩',
+    Other: '기타', Default: '기본'
+  };
+
   const iconMap = {
     'Session': '&#9636;', 'Configuration': '&#9881;', 'Tools': '&#9883;',
     'Skills': '&#9733;', 'Model': '&#128200;', 'Cron': '&#9201;',
@@ -932,7 +940,7 @@ function renderDrawer(commands, query) {
 
   let html = '';
   Object.keys(cats).sort().forEach(cat => {
-    html += `<div class="cmd-category">${cat}</div>`;
+    html += `<div class="cmd-category">${categoryLabel[cat] || cat}</div>`;
     cats[cat].forEach(cmd => {
       const needsArgs = cmd.args_hint;
       const isCliOnly = cmd.cli_only;
@@ -981,16 +989,16 @@ async function submitToken() {
   const btn = document.getElementById('token-submit');
   const err = document.getElementById('token-error');
   const token = input.value.trim();
-  if (!token) { err.textContent = 'Please enter your API token'; err.style.display = 'block'; return; }
+  if (!token) { err.textContent = 'API 토큰을 입력해 주세요'; err.style.display = 'block'; return; }
   btn.disabled = true;
-  btn.textContent = 'Verifying...';
+  btn.textContent = '확인 중...';
   err.style.display = 'none';
   // Test the token by hitting /api/debug-auth (which does NOT enforce auth)
   // to confirm the gateway is reachable, then verify the token via /api/commands
   try {
     // First verify gateway is reachable
     const health = await fetchWithTimeout(API + '/health', { timeout: 5000 });
-    if (!health.ok) throw new Error('Gateway unreachable');
+    if (!health.ok) throw new Error('Gateway에 연결할 수 없습니다');
 
     // Then verify the token by calling /api/commands with ONLY Bearer auth
     // (no Telegram initData — this forces true Bearer token validation)
@@ -1010,20 +1018,20 @@ async function submitToken() {
       initAfterAuth();
     } else {
       const ct = r.headers.get('content-type') || '';
-      let msg = 'Invalid token (HTTP ' + r.status + ')';
+      let msg = '유효하지 않은 토큰입니다 (HTTP ' + r.status + ')';
       if (ct.includes('application/json')) {
         try { const j = await r.json(); if (j?.error?.message) msg = j.error.message; } catch (_) {}
       }
       err.textContent = msg;
       err.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Connect';
+      btn.textContent = '연결하기';
     }
   } catch(e) {
-    err.textContent = 'Connection failed: ' + e.message;
+    err.textContent = '연결 실패: ' + e.message;
     err.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'Connect';
+    btn.textContent = '연결하기';
   }
 }
 function initAfterAuth() {
@@ -1031,7 +1039,7 @@ function initAfterAuth() {
   loadModelInfo();
   startDurationTimer();
   loadCommands();
-  addMsg('system', 'OpenClaw Terminal — type /help or tap menu for commands.');
+  addMsg('system', 'OpenClaw 터미널입니다. /help 를 입력하거나 메뉴에서 명령을 선택하세요.');
   input.focus();
   setInterval(async () => {
     if (activeTab === 'status') loadStatus();
@@ -1046,7 +1054,7 @@ function setConn(state) {
   const dot = document.getElementById('conn-dot');
   const lbl = document.getElementById('conn-label');
   dot.className = 'conn-dot ' + (state === 'online' ? 'online' : state === 'offline' ? 'offline' : '');
-  lbl.textContent = state === 'online' ? 'Online' : state === 'offline' ? 'Offline' : '...';
+  lbl.textContent = state === 'online' ? '온라인' : state === 'offline' ? '오프라인' : '...';
 }
 
 async function checkConn() {
@@ -1189,10 +1197,10 @@ const catFrames = [
   '  /\\_/\\\n > o.O <\n > ~w~ <',
 ];
 const catPhrases = [
-  'thinking...', 'hmm let me check...', 'poking the terminal...',
-  'consulting /dev/urandom...', 'deeper thought required...',
-  'crunching bytes...', 'hacking the gibson...', 'one sec, almost there...',
-  'asking the oracle...', 'divining the answer...',
+  '생각 중...', '흠, 잠깐만 확인할게요...', '터미널을 뒤적이는 중...',
+  '/dev/urandom에 물어보는 중...', '조금 더 깊게 생각 중...',
+  '바이트를 계산하는 중...', '거의 다 됐어요...',
+  '오라클에게 묻는 중...', '답을 정리하는 중...',
 ];
 let _thinkInterval = null, _thinkFrame = 0;
 
@@ -1300,7 +1308,7 @@ function closeMsgPopup() {
 function copyMsg() {
   if (pendingMsgMenu?.text) {
     navigator.clipboard?.writeText(pendingMsgMenu.text).catch(() => {});
-    toast('Copied!', 1500);
+    toast('복사했어요!', 1500);
   }
   closeMsgPopup();
 }
@@ -1328,7 +1336,7 @@ function deleteMsg() {
     pendingMsgMenu = null;
   }
   closeMsgPopup();
-  toast('Message deleted', 1500);
+  toast('메시지를 삭제했어요', 1500);
 }
 
 document.addEventListener('click', closeMsgPopup);
@@ -1366,14 +1374,14 @@ function handleFileAttach(input) {
   if (!file) return;
   const supported = ['image/', 'application/pdf', 'text/', 'application/json', 'text/csv'];
   if (!supported.some(t => file.type.startsWith(t))) {
-    toast('Unsupported file type. Use images, PDFs, or text files.');
+    toast('지원하지 않는 파일 형식입니다. 이미지, PDF, 텍스트 파일을 사용해 주세요.');
     return;
   }
   const reader = new FileReader();
   reader.onload = e => {
     attachedImage = { data_url: e.target.result, name: file.name };
     updateAttachPreview();
-    toast('File attached — ' + file.name, 2000, true);
+    toast('파일 첨부 완료: ' + file.name, 2000, true);
     input.value = '';
   };
   reader.readAsDataURL(file);
@@ -1560,7 +1568,7 @@ async function sendMessage() {
     if (!r.ok) {
       rmTyping();
       if (retryCount < 2 && (r.status >= 500 || r.status === 0)) {
-        showRetry(`Server error ${r.status}`);
+        showRetry(`서버 오류 ${r.status}`);
       } else {
         addMsg('system', `Error: ${r.status}`);
       }
@@ -1572,11 +1580,11 @@ async function sendMessage() {
   } catch (e) {
     rmTyping();
     if (e.message === 'Stream cancelled') {
-      addMsg('system', 'Cancelled');
+      addMsg('system', '취소되었습니다');
     } else if (retryCount < 2) {
-      showRetry(e.message === 'The user aborted a request' ? 'Request cancelled' : e.message);
+      showRetry(e.message === 'The user aborted a request' ? '요청이 취소되었습니다' : e.message);
     } else {
-      addMsg('system', 'Connection: ' + e.message);
+      addMsg('system', '연결 상태: ' + e.message);
     }
   }
   stopStreaming();
@@ -1668,7 +1676,7 @@ async function streamResponse(r) {
     bubble.classList.remove('stream-dot');
   }
   else if (!div && firstChunk) rmTyping();  // clean up if no content arrived
-  else if (!div) addMsg('system', 'No response');
+  else if (!div) addMsg('system', '응답이 없습니다');
   _streamDiv = null;
 }
 
@@ -1687,7 +1695,7 @@ async function loadSession() {
 async function loadStatus() {
   const bar = document.getElementById('status-bar');
   const content = document.getElementById('status-content');
-  bar.innerHTML = `<div class="status-chip warn"><span class="status-dot"></span>Loading...</div>`;
+  bar.innerHTML = `<div class="status-chip warn"><span class="status-dot"></span>불러오는 중...</div>`;
   content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">Fetching system info...</div>`;
 
   try {
@@ -1718,7 +1726,7 @@ async function loadStatus() {
     const diskClass = diskPct == null ? '' : diskPct > 80 ? 'high' : diskPct > 50 ? 'mid' : 'low';
 
     bar.innerHTML = `
-      <div class="status-chip ok"><span class="status-dot"></span>Online</div>
+      <div class="status-chip ok"><span class="status-dot"></span>온라인</div>
       <div class="status-chip ${cpuGauge == null ? 'warn' : cpuGauge > 80 ? 'error' : 'ok'}">
         <span class="status-dot"></span>CPU ${cpuGauge != null ? cpuGauge + '%' : '—'}
       </div>
@@ -1783,8 +1791,8 @@ async function loadStatus() {
       </div>
     `;
   } catch (e) {
-    bar.innerHTML = `<div class="status-chip error"><span class="status-dot"></span>Offline</div>`;
-    content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}<br><br>Status and cron panels need OpenClaw-specific adapter endpoints or a Control UI bridge.</div></div>`;
+    bar.innerHTML = `<div class="status-chip error"><span class="status-dot"></span>오프라인</div>`;
+    content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}<br><br>상태와 크론 패널은 OpenClaw 전용 adapter endpoint 또는 Control UI bridge가 더 필요합니다.</div></div>`;
   }
 }
 
@@ -1798,7 +1806,7 @@ async function loadCron() {
     const raw = await api('/api/jobs');
     const jobs = raw?.jobs || raw || [];
     if (!Array.isArray(jobs) || !jobs.length) {
-      content.innerHTML = '<div class="cron-empty">No scheduled jobs — use /cron to create one</div>';
+      content.innerHTML = '<div class="cron-empty">예약된 작업이 없습니다. /cron 으로 새 작업을 만들어 보세요</div>';
       return;
     }
 
@@ -1849,8 +1857,8 @@ async function loadCron() {
         <div class="cron-meta">Last: ${last} &middot; <span class="item-value ${stc}">${esc(st)}</span>${esc(repStr)}</div>
         <div class="cron-actions">
           ${active
-            ? `<button class="cron-btn pause" onclick="cronAct('${j.id}','pause')">Pause</button>`
-            : `<button class="cron-btn resume" onclick="cronAct('${j.id}','resume')">Resume</button>`}
+            ? `<button class="cron-btn pause" onclick="cronAct('${j.id}','pause')">일시정지</button>`
+            : `<button class="cron-btn resume" onclick="cronAct('${j.id}','resume')">재개</button>`}
           <button class="cron-btn run" onclick="cronAct('${j.id}','run')">Run Now</button>
           <button class="cron-btn edit" onclick="editCronJob('${j.id}')">&#9998;</button>
           <button class="cron-btn delete" onclick="confirmDeleteCron('${j.id}','${esc(j.name || j.id)}')">&#128465;</button>
@@ -1878,8 +1886,8 @@ let _cronEditId = null; // null = create mode, string = edit mode
 
 function openCronModal(job) {
   _cronEditId = job ? job.id : null;
-  document.getElementById('cron-modal-title').textContent = job ? 'Edit Cron Job' : 'New Cron Job';
-  document.getElementById('cron-submit-btn').textContent = job ? 'Save Changes' : 'Create Job';
+  document.getElementById('cron-modal-title').textContent = job ? '크론 작업 수정' : '새 크론 작업';
+  document.getElementById('cron-submit-btn').textContent = job ? '변경사항 저장' : '작업 만들기';
   document.getElementById('cron-field-name').value = job ? (job.name || '') : '';
   document.getElementById('cron-field-schedule').value = job ? (job.schedule || job.schedule_display || '') : '';
   document.getElementById('cron-field-prompt').value = job ? (job.prompt || '') : '';
@@ -1921,7 +1929,7 @@ async function submitCronJob() {
 
   if (!name) { toast('Name is required'); return; }
   if (!schedule) { toast('Schedule is required'); return; }
-  if (!prompt && !_cronEditId) { toast('Prompt is required'); return; }
+  if (!prompt && !_cronEditId) { toast('프롬프트를 입력해 주세요'); return; }
 
   const body = { name, schedule };
   if (prompt) body.prompt = prompt;
@@ -1947,7 +1955,7 @@ async function submitCronJob() {
     toast('Error: ' + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = _cronEditId ? 'Save Changes' : 'Create Job';
+    btn.textContent = _cronEditId ? '변경사항 저장' : '작업 만들기';
   }
 }
 
@@ -1966,9 +1974,9 @@ function confirmDeleteCron(id, name) {
   const el = document.getElementById(`cron-del-confirm-${id}`);
   if (!el) return;
   el.innerHTML = `<div class="cron-delete-confirm">
-    <span>Delete "${name}"?</span>
-    <button class="cancel-del" onclick="cancelDeleteCron('${id}')">Cancel</button>
-    <button class="confirm-del" onclick="deleteCronJob('${id}')">Delete</button>
+    <span>"${name}" 작업을 삭제할까요?</span>
+    <button class="cancel-del" onclick="cancelDeleteCron('${id}')">취소</button>
+    <button class="confirm-del" onclick="deleteCronJob('${id}')">삭제</button>
   </div>`;
   WebApp?.HapticFeedback?.impactOccurred('medium');
 }
@@ -1990,23 +1998,23 @@ async function deleteCronJob(id) {
 
 // ─── CMD LIST (for autocomplete) ───────────────────────────────────────────
 window.cmdList = [
-  {name:'status', desc:'Show session info'},
-  {name:'new', desc:'Start fresh session'},
-  {name:'stop', desc:'Kill running processes'},
-  {name:'model', desc:'Switch model', args:'[name]'},
-  {name:'cron', desc:'Manage scheduled tasks', args:'[list|pause|resume|run]'},
-  {name:'config', desc:'Show configuration'},
-  {name:'help', desc:'Show all commands'},
-  {name:'commands', desc:'Browse commands & skills'},
-  {name:'clear', desc:'Clear screen'},
-  {name:'tools', desc:'Manage tools'},
-  {name:'skills', desc:'Search & manage skills'},
-  {name:'personality', desc:'Set personality'},
-  {name:'yolo', desc:'Toggle auto-approve'},
-  {name:'verbose', desc:'Cycle tool display'},
-  {name:'background', desc:'Run prompt in background'},
-  {name:'retry', desc:'Retry last message'},
-  {name:'history', desc:'Show conversation history'},
+  {name:'status', desc:'세션 정보 보기'},
+  {name:'new', desc:'새 세션 시작'},
+  {name:'stop', desc:'실행 중인 프로세스 종료'},
+  {name:'model', desc:'모델 변경', args:'[이름]'},
+  {name:'cron', desc:'예약 작업 관리', args:'[list|pause|resume|run]'},
+  {name:'config', desc:'설정 보기'},
+  {name:'help', desc:'전체 명령 보기'},
+  {name:'commands', desc:'명령어와 스킬 탐색'},
+  {name:'clear', desc:'화면 비우기'},
+  {name:'tools', desc:'도구 관리'},
+  {name:'skills', desc:'스킬 검색 및 관리'},
+  {name:'personality', desc:'성격 설정'},
+  {name:'yolo', desc:'자동 승인 전환'},
+  {name:'verbose', desc:'도구 표시 방식 변경'},
+  {name:'background', desc:'프롬프트를 백그라운드에서 실행'},
+  {name:'retry', desc:'마지막 메시지 다시 시도'},
+  {name:'history', desc:'대화 기록 보기'},
 ];
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
@@ -2069,7 +2077,7 @@ window.cmdList = [
     loadModelInfo();
     startDurationTimer();
 
-    addMsg('system', 'OpenClaw Terminal — type /help or tap menu for commands.');
+    addMsg('system', 'OpenClaw 터미널입니다. /help 를 입력하거나 메뉴에서 명령을 선택하세요.');
     input.focus();
 
     setInterval(async () => {

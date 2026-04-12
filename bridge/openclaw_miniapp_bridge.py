@@ -24,12 +24,12 @@ DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
 
 COMMANDS = [
-    {'name': 'help', 'description': 'Show supported mini app commands', 'category': 'core'},
-    {'name': 'commands', 'description': 'List supported commands in this bridge', 'category': 'core'},
-    {'name': 'status', 'description': 'Summarize OpenClaw runtime status', 'category': 'runtime'},
-    {'name': 'model', 'description': 'Show active/default model summary', 'category': 'runtime'},
-    {'name': 'cron list', 'description': 'List cron jobs', 'category': 'cron'},
-    {'name': 'cron run <id>', 'description': 'Run a cron job immediately', 'category': 'cron'},
+    {'name': 'help', 'description': '미니앱에서 지원하는 명령 보기', 'category': 'core'},
+    {'name': 'commands', 'description': '이 브리지에서 지원하는 명령 목록 보기', 'category': 'core'},
+    {'name': 'status', 'description': 'OpenClaw 실행 상태 요약 보기', 'category': 'runtime'},
+    {'name': 'model', 'description': '현재 기본 모델 정보 보기', 'category': 'runtime'},
+    {'name': 'cron list', 'description': '크론 작업 목록 보기', 'category': 'cron'},
+    {'name': 'cron run <id>', 'description': '크론 작업을 즉시 실행', 'category': 'cron'},
 ]
 
 
@@ -271,7 +271,7 @@ def command_output(command, args):
     if args:
         full = f"{full} {args}".strip()
     if full in ('/help', 'help'):
-        return 'Supported bridge commands:\n' + '\n'.join(f"- /{c['name']} — {c['description']}" for c in COMMANDS)
+        return '지원하는 브리지 명령:\n' + '\n'.join(f"- /{c['name']} — {c['description']}" for c in COMMANDS)
     if full in ('/commands', 'commands'):
         return json.dumps(commands_payload(), ensure_ascii=False, indent=2)
     if full in ('/status', 'status'):
@@ -283,8 +283,8 @@ def command_output(command, args):
     if full.startswith('/cron run ') or full.startswith('cron run '):
         job_id = full.split()[-1]
         cron_action(job_id, 'run')
-        return f'Cron job triggered: {job_id}'
-    return f'Unsupported command in OpenClaw bridge: {full}'
+        return f'크론 작업을 실행했어요: {job_id}'
+    return f'OpenClaw 브리지에서 아직 지원하지 않는 명령입니다: {full}'
 
 
 def auth_ok(handler):
