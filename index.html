@@ -98,12 +98,18 @@ body {
 }
 .cmd-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px; cursor: pointer;
+  padding: 10px 16px; cursor: pointer;
+  min-height: 44px;
   border-bottom: 1px solid rgba(255,255,255,.03);
   transition: background .1s;
 }
 .cmd-item:active { background: rgba(79,70,229,.15); }
 .cmd-item.hidden { display: none; }
+.cmd-pin {
+  border:none; background:rgba(255,255,255,.06); color:var(--hint); cursor:pointer;
+  width:28px; height:28px; border-radius:8px; flex-shrink:0; font-size:13px;
+}
+.cmd-pin.active { color:#f59e0b; background:rgba(245,158,11,.14); }
 .cmd-icon {
   width: 28px; height: 28px; border-radius: 8px;
   background: rgba(79,70,229,.15); color: var(--accent);
@@ -138,7 +144,7 @@ body {
   gap: 8px;
 }
 .menu-btn {
-  width: 34px; height: 34px; border-radius: 9px;
+  width: 44px; height: 44px; border-radius: 12px;
   background: rgba(255,255,255,.05); border: none;
   color: var(--text); cursor: pointer; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -340,7 +346,7 @@ body {
   align-items: flex-end;
 }
 .attach-btn {
-  width: 38px; height: 38px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 14px;
   background: rgba(255,255,255,.06); border: none;
   color: var(--hint); font-size: 18px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -356,7 +362,7 @@ body {
 .chat-input::placeholder { color: var(--hint); }
 .chat-input:focus { border-color: var(--btn); }
 .send-btn {
-  width: 38px; height: 38px; border-radius: 50%; background: var(--btn);
+  min-width: 44px; height: 44px; border-radius: 14px; background: var(--btn);
   color: var(--btn-text); border: none; font-size: 16px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
@@ -377,6 +383,119 @@ body {
   font-size: 12px; cursor: pointer; padding: 0 2px; flex-shrink: 0;
 }
 .attach-remove:hover { color: var(--destructive); }
+
+/* Composer target */
+.composer-target {
+  display:none; align-items:center; gap:8px;
+  margin: 0 10px 6px; padding: 8px 10px;
+  border-radius: 12px; background: rgba(79,70,229,.12); color: var(--text);
+  border: 1px solid rgba(79,70,229,.18);
+}
+.composer-target.visible { display:flex; }
+.composer-target-label { font-size: 11px; color: var(--accent); font-weight: 700; }
+.composer-target-meta { flex:1; min-width:0; font-size:11px; color: var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.composer-target-close {
+  border:none; background:none; color: var(--hint); font-size:14px; cursor:pointer;
+}
+
+/* Favorite / recent command chips */
+.favorite-cmds, .recent-cmds {
+  display:none; gap:6px; overflow-x:auto; padding: 0 10px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.favorite-cmds.visible, .recent-cmds.visible { display:flex; }
+.favorite-cmd-chip, .recent-cmd-chip {
+  border:none; border-radius:999px; padding:7px 10px; white-space:nowrap;
+  background: rgba(255,255,255,.06); color: var(--text); font-size:11px; cursor:pointer;
+  max-width: 220px; overflow:hidden; text-overflow:ellipsis;
+}
+.favorite-cmd-chip { background: rgba(245,158,11,.14); color: #f59e0b; }
+.recent-cmd-chip {
+  border:none; border-radius:999px; padding:7px 10px; white-space:nowrap;
+  background: rgba(255,255,255,.06); color: var(--text); font-size:11px; cursor:pointer;
+  max-width: 220px; overflow:hidden; text-overflow:ellipsis;
+}
+.recent-cmd-chip.primary { background: rgba(79,70,229,.16); color: var(--accent); }
+.recent-cmd-clear {
+  border:none; border-radius:999px; padding:7px 10px; white-space:nowrap;
+  background: rgba(239,68,68,.12); color: #ef4444; font-size:11px; cursor:pointer;
+}
+
+/* Modal */
+.detail-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 80;
+  display:none; align-items:flex-end;
+}
+.detail-modal-overlay.open { display:flex; }
+.detail-modal {
+  width: 100%; max-height: 86vh; background: var(--sec-bg);
+  border-top-left-radius: 18px; border-top-right-radius: 18px;
+  border-top: 1px solid var(--border); overflow: hidden;
+  display:flex; flex-direction:column;
+}
+.detail-modal-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+}
+.detail-modal-title { font-size: 13px; font-weight: 700; }
+.detail-modal-close {
+  width: 44px; height: 44px; border:none; background:none; color: var(--hint); font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; border-radius:12px;
+}
+.detail-modal-body { flex:1; overflow-y:auto; padding: 12px 14px 18px; }
+.detail-tabs { display:flex; gap:6px; padding: 0 0 12px; flex-wrap:wrap; }
+.detail-tab { min-height:40px; padding:9px 12px; border:none; border-radius:999px; font-size:11px; font-weight:700; background: rgba(255,255,255,.06); color: var(--hint); cursor:pointer; }
+.detail-tab.active { background: rgba(79,70,229,.18); color: var(--accent); }
+.history-card {
+  background: var(--section-bg); border:1px solid var(--border); border-radius: 12px;
+  padding:10px 12px; margin-bottom:10px;
+}
+.history-card.user { background: rgba(79,70,229,.10); }
+.history-card.assistant { background: rgba(34,197,94,.08); }
+.history-card.system, .history-card.command { background: rgba(245,158,11,.08); }
+.history-head {
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;
+}
+.history-role-wrap { display:flex; align-items:center; gap:6px; min-width:0; }
+.history-icon {
+  width:20px; height:20px; border-radius:999px; display:flex; align-items:center; justify-content:center;
+  font-size:11px; background: rgba(255,255,255,.08);
+}
+.history-role { font-size:10px; text-transform:uppercase; letter-spacing:.6px; color: var(--hint); }
+.history-role.user { color: var(--accent); }
+.history-role.assistant { color: #22c55e; }
+.history-role.system, .history-role.command { color: #f59e0b; }
+.history-meta { font-size:10px; color: var(--hint); }
+.history-text { font-size:12px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+.history-text.collapsed {
+  display:-webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical;
+  overflow:hidden;
+}
+.history-toggle {
+  margin-top:8px; border:none; background:none; color: var(--accent); cursor:pointer;
+  font-size:11px; font-weight:700; padding:0;
+}
+.history-empty { color: var(--hint); font-size:12px; text-align:center; padding:22px 12px; }
+.kv-card { background: var(--section-bg); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:10px; }
+.kv-row { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-top:1px solid rgba(255,255,255,.04); }
+.kv-row:first-child { border-top:none; }
+.kv-key { font-size:11px; color: var(--hint); font-weight:700; min-width:72px; }
+.kv-value { font-size:12px; color: var(--text); text-align:right; white-space:pre-wrap; word-break:break-word; flex:1; }
+.loading-skeleton { padding: 14px; }
+.skeleton-card {
+  background: var(--section-bg); border:1px solid var(--border); border-radius: 12px;
+  padding: 12px; margin-bottom: 10px;
+}
+.skeleton-line {
+  height: 10px; border-radius: 999px; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05));
+  background-size: 200% 100%; animation: skeletonShimmer 1.2s linear infinite;
+}
+.skeleton-line + .skeleton-line { margin-top: 8px; }
+.skeleton-line.w40 { width: 40%; }
+.skeleton-line.w60 { width: 60%; }
+.skeleton-line.w85 { width: 85%; }
+.skeleton-line.w100 { width: 100%; }
+@keyframes skeletonShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* Command suggest */
 .cmd-suggest {
@@ -409,6 +528,14 @@ body {
 .error .status-dot { background: #ef4444; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
 
+.status-alert {
+  margin: 0 14px 10px; padding: 12px 14px; border-radius: 14px;
+  background: rgba(239,68,68,.12); color: #fecaca; border: 1px solid rgba(239,68,68,.2);
+}
+.status-alert.warn { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.2); }
+.status-alert-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+.status-alert-body { font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+
 .panel-scroll { flex: 1; overflow-y: auto; padding: 0 0 20px; -webkit-overflow-scrolling: touch; }
 .panel-scroll::-webkit-scrollbar { width: 2px; }
 .panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
@@ -439,12 +566,27 @@ body {
 .gauge-fill.high { background: #ef4444; }
 
 .item { padding: 9px 14px; border-top: 1px solid rgba(255,255,255,.04); display: flex; justify-content: space-between; align-items: center; }
+.item-topline { padding: 9px 14px; border-top: 1px solid rgba(255,255,255,.04); display:flex; justify-content:space-between; align-items:center; gap:10px; }
 .item-label { font-size: 12px; font-weight: 500; }
+.item-label-row { display:flex; align-items:center; gap:8px; min-width:0; }
+.favorite-btn {
+  border:none; background:none; color: var(--hint); cursor:pointer; font-size:16px; line-height:1;
+  padding:0; width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+}
+.favorite-btn.active { color: #f59e0b; }
 .item-value { font-size: 12px; font-weight: 600; text-align: right; }
 .item-value.positive { color: #22c55e; }
 .item-value.negative { color: #ef4444; }
 .item-value.muted { color: var(--hint); }
 .item-value.accent { color: var(--accent); }
+.item-stack { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+.item-sub { font-size:10px; color: var(--hint); }
+.item-value.mono { font-family: 'SF Mono','Fira Code','Cascadia Code','Menlo',monospace; font-size:10px; word-break:break-all; }
+.badge-row { display:flex; gap:6px; flex-wrap:wrap; padding:0 14px 10px; }
+.mini-badge { font-size:10px; padding:4px 8px; border-radius:999px; background: rgba(255,255,255,.06); color: var(--hint); }
+.mini-badge.ok { color:#22c55e; background: rgba(34,197,94,.12); }
+.mini-badge.warn { color:#f59e0b; background: rgba(245,158,11,.12); }
+.mini-badge.info { color: var(--accent); background: rgba(79,70,229,.12); }
 
 /* Quick actions grid */
 .quick-grid {
@@ -452,7 +594,7 @@ body {
   padding: 6px 12px 10px;
 }
 .qbtn {
-  padding: 7px 10px; border-radius: 10px; font-size: 11px; font-weight: 700;
+  min-height: 44px; padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
   border: none; cursor: pointer; font-family: inherit;
   background: rgba(79,70,229,.15); color: var(--accent);
   transition: background .15s;
@@ -583,7 +725,7 @@ body {
   display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap;
 }
 .cron-chip {
-  padding: 4px 10px; border-radius: 8px;
+  min-height: 40px; padding: 8px 12px; border-radius: 10px;
   background: rgba(255,255,255,.06); border: 1px solid var(--border);
   color: var(--text); font-size: 10px; font-weight: 600;
   cursor: pointer; font-family: inherit;
@@ -620,18 +762,35 @@ body {
 .toast.visible { opacity: 1; }
 .toast.success { background: #22c55e; }
 
-/* Retry bar */
+/* Network / retry bar */
+.network-bar {
+  display:none; align-items:center; justify-content:space-between; gap:10px;
+  background: rgba(239,68,68,.14); border: 1px solid rgba(239,68,68,.28);
+  border-radius: 8px; margin: 6px 12px 0; padding: 8px 12px;
+  font-size: 11px; color: #fca5a5;
+}
+.network-bar.visible { display:flex; }
+.network-meta { display:flex; align-items:center; gap:8px; min-width:0; }
+.network-pill {
+  font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px;
+  background: rgba(239,68,68,.2); color: #fecaca;
+}
+.network-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .retry-bar {
   display: none; background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.3);
-  border-radius: 8px; margin: 6px 12px 0; padding: 6px 12px;
-  font-size: 11px; color: #f59e0b; align-items: center; gap: 8px;
+  border-radius: 8px; margin: 6px 12px 0; padding: 8px 12px;
+  font-size: 11px; color: #f59e0b; align-items: center; justify-content: space-between; gap: 8px;
 }
 .retry-bar.visible { display: flex; }
-.retry-bar button {
-  background: rgba(245,158,11,.2); border: 1px solid rgba(245,158,11,.4);
-  border-radius: 6px; padding: 3px 10px; color: #f59e0b; font-size: 10px;
+.retry-meta { display:flex; align-items:center; gap:8px; min-width:0; }
+.retry-msg { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.retry-bar button, .network-bar button {
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px; padding: 6px 10px; font-size: 10px;
   font-weight: 700; cursor: pointer; font-family: inherit;
 }
+.retry-bar button { color: #f59e0b; }
+.network-bar button { color: #fecaca; }
 
 /* ─── MSG MENU POPUP ───────────────────────────────────────────────────── */
 .msg-popup {
@@ -748,11 +907,27 @@ body {
     <div class="chat-messages" id="chat-messages"></div>
     <button class="scroll-btn" id="scroll-btn" onclick="scrollToBottom(true)">&#8595;</button>
   </div>
+  <div class="network-bar" id="network-bar">
+    <div class="network-meta">
+      <span class="network-pill">offline</span>
+      <span class="network-text" id="network-msg">연결이 불안정합니다</span>
+    </div>
+    <button onclick="checkConn(true)">재확인</button>
+  </div>
   <div class="retry-bar" id="retry-bar">
-    <span id="retry-msg">요청이 실패했습니다</span>
+    <div class="retry-meta">
+      <span id="retry-msg" class="retry-msg">요청이 실패했습니다</span>
+    </div>
     <button onclick="retryLast()">다시 시도</button>
   </div>
   <div class="cmd-suggest" id="cmd-suggest"></div>
+  <div class="composer-target" id="composer-target">
+    <span class="composer-target-label">SEND</span>
+    <span class="composer-target-meta" id="composer-target-meta">대상 세션</span>
+    <button class="composer-target-close" onclick="clearComposerTarget()">✕</button>
+  </div>
+  <div class="favorite-cmds" id="favorite-cmds"></div>
+  <div class="recent-cmds" id="recent-cmds"></div>
   <div class="chat-input-bar">
     <button class="attach-btn" id="attach-btn" onclick="triggerAttach()" title="파일 첨부">&#128206;</button>
     <input type="file" id="file-input" class="hidden-input" accept="image/*,.pdf,.csv,.txt,.json" onchange="handleFileAttach(this)">
@@ -824,6 +999,17 @@ body {
   </div>
 </div>
 
+<!-- DETAIL MODAL -->
+<div class="detail-modal-overlay" id="detail-modal-overlay" onclick="closeDetailModal(event)">
+  <div class="detail-modal" onclick="event.stopPropagation()">
+    <div class="detail-modal-header">
+      <div class="detail-modal-title" id="detail-modal-title">상세 보기</div>
+      <button class="detail-modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div class="detail-modal-body" id="detail-modal-body"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -869,11 +1055,17 @@ if (WebApp) { WebApp.ready(); WebApp.expand(); }
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let sessionId = null;
+let composerSessionTarget = null;
+let sessionsFilter = '';
+let sessionsViewMode = 'comfy';
+let agentsViewMode = 'comfy';
+let currentSessions = [];
 let streaming = false;
 let activeTab = 'terminal';
 let lastRequest = null;
 let retryCount = 0;
 let connState = 'checking';
+let retryTimer = null;
 let userId = null;
 let apiToken = null;      // Bearer token for non-Telegram (browser) access
 let isTelegram = false;   // true when running inside Telegram client
@@ -886,6 +1078,9 @@ let _modelInfo = null;       // {model, model_short, provider, context_length}
 let _sessionUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 let _sessionStart = Date.now();
 let _durationTimer = null;
+let recentCommands = [];
+let lastErrorState = null;
+const DEFAULT_FAVORITE_COMMANDS = ['/status', '/model', '/cron list', '/help'];
 
 // ─── DRAWER ────────────────────────────────────────────────────────────────
 function openDrawer() {
@@ -912,6 +1107,31 @@ async function loadCommands() {
   }
 }
 
+function getFavoriteCommands() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('openclaw_favorite_commands') || '[]');
+    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_FAVORITE_COMMANDS.slice();
+  } catch (_) {
+    return DEFAULT_FAVORITE_COMMANDS.slice();
+  }
+}
+function saveFavoriteCommands(list) {
+  try { localStorage.setItem('openclaw_favorite_commands', JSON.stringify(list)); } catch (_) {}
+}
+function isFavoriteCommand(cmd) {
+  return getFavoriteCommands().includes(cmd);
+}
+function toggleFavoriteCommand(cmd, ev) {
+  if (ev) ev.stopPropagation();
+  const current = getFavoriteCommands();
+  const next = current.includes(cmd)
+    ? current.filter(v => v !== cmd)
+    : [cmd, ...current].slice(0, 8);
+  saveFavoriteCommands(next.length ? next : DEFAULT_FAVORITE_COMMANDS.slice(0, 2));
+  renderFavoriteCommands();
+  renderDrawer(allCommands, (document.getElementById('menu-search')?.value || '').toLowerCase());
+  toast(current.includes(cmd) ? '즐겨찾기에서 제거했어요' : '즐겨찾기에 추가했어요', 1400, true);
+}
 function filterMenu(q) {
   renderDrawer(allCommands, q.toLowerCase());
 }
@@ -970,6 +1190,7 @@ function renderDrawer(commands, query) {
         </div>
         ${needsArgs ? `<div class="cmd-args">${esc(cmd.args_hint)}</div>` : ''}
         ${isCliOnly ? '<div class="cmd-badge">CLI</div>' : ''}
+        <button class="cmd-pin ${isFavoriteCommand('/' + cmd.name) ? 'active' : ''}" onclick="toggleFavoriteCommand('/${cmd.name}', event)">★</button>
       </div>`;
     });
   });
@@ -1065,20 +1286,41 @@ function initAfterAuth() {
 }
 
 // ─── CONNECTION ─────────────────────────────────────────────────────────────
-function setConn(state) {
+function updateNetworkBar(state, msg) {
+  const bar = document.getElementById('network-bar');
+  const text = document.getElementById('network-msg');
+  const pill = bar?.querySelector('.network-pill');
+  if (!bar || !text || !pill) return;
+  if (state === 'offline') {
+    text.textContent = msg || '연결이 불안정합니다';
+    pill.textContent = 'offline';
+    bar.classList.add('visible');
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function setConn(state, detail = '') {
   connState = state;
   const dot = document.getElementById('conn-dot');
   const lbl = document.getElementById('conn-label');
   dot.className = 'conn-dot ' + (state === 'online' ? 'online' : state === 'offline' ? 'offline' : '');
   lbl.textContent = state === 'online' ? '온라인' : state === 'offline' ? '오프라인' : '...';
+  updateNetworkBar(state, detail || (state === 'offline' ? '브리지 또는 네트워크 연결을 확인해 주세요' : ''));
 }
 
-async function checkConn() {
+async function checkConn(notify = false) {
   try {
     const r = await fetchWithTimeout(API + '/health', { timeout: 4000 });
-    if (r.ok) { setConn('online'); return true; }
+    if (r.ok) {
+      setConn('online');
+      if (notify) toast('연결 정상', 1500, true);
+      return true;
+    }
   } catch(_) {}
-  setConn('offline'); return false;
+  setConn('offline', '브리지 또는 네트워크 연결을 확인해 주세요');
+  if (notify) toast('아직 연결되지 않았어요', 1800);
+  return false;
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
@@ -1088,6 +1330,9 @@ function esc(s) {
     .replace(/&/g,'&amp;')
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;');
+}
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function headers(extra) {
@@ -1112,6 +1357,17 @@ async function fetchWithTimeout(url, { method='GET', headers={}, body=null, time
   }
 }
 
+function explainHttpError(status, body = '', statusText = '') {
+  const text = String(body || '').toLowerCase();
+  if (text.includes('error code: 1010')) return 'Cloudflare 접근 차단(1010): WAF/보안 규칙에서 이 요청을 막고 있어요.';
+  if (text.includes('error code: 1033')) return 'Cloudflare Tunnel 연결 실패(1033): hostname이 현재 tunnel connector에 제대로 연결되지 않았어요.';
+  if (status === 401) return '인증 실패(401): Telegram initData 또는 Bearer 토큰을 다시 확인해 주세요.';
+  if (status === 403) return '접근 거부(403): Cloudflare 또는 보안 정책에서 요청을 차단했어요.';
+  if (status === 404) return '엔드포인트 없음(404): bridge 또는 gateway 경로를 확인해 주세요.';
+  if (status >= 500) return `서버 오류(${status}): bridge 또는 gateway 내부 오류예요.`;
+  return `API ${status}${statusText ? ': ' + statusText : ''}`;
+}
+
 async function api(path, opts = {}) {
   const r = await fetchWithTimeout(API + path, {
     method: opts.method || 'GET',
@@ -1122,9 +1378,10 @@ async function api(path, opts = {}) {
     const ct = r.headers.get('content-type') || '';
     if (ct.includes('application/json')) {
       const j = await r.json().catch(() => ({}));
-      throw new Error(j?.error?.message || j?.error || `API ${r.status}`);
+      throw new Error(j?.error?.message || j?.error || explainHttpError(r.status, '', r.statusText));
     }
-    throw new Error(`API ${r.status}: ${r.statusText}`);
+    const body = await r.text().catch(() => '');
+    throw new Error(explainHttpError(r.status, body, r.statusText));
   }
   return r.json();
 }
@@ -1369,15 +1626,47 @@ function toast(msg, duration = 3000, success = false) {
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('visible'), duration);
 }
+function rememberError(msg, kind = 'error') {
+  lastErrorState = { kind, message: msg, at: Date.now() };
+}
+function clearRememberedError() {
+  lastErrorState = null;
+}
+function clearLastErrorAndRefresh() {
+  clearRememberedError();
+  hideRetry();
+  toast('마지막 오류를 지웠어요.', 1500, true);
+  loadStatus();
+}
+
+function scheduleRetryHint() {
+  clearTimeout(retryTimer);
+  if (retryCount >= 2 || !lastRequest) return;
+  retryTimer = setTimeout(() => {
+    const btn = document.querySelector('#retry-bar button');
+    if (btn && document.getElementById('retry-bar').classList.contains('visible')) {
+      btn.textContent = '다시 시도';
+    }
+  }, 2500);
+}
 
 function showRetry(msg) {
-  document.getElementById('retry-msg').textContent = msg;
-  document.getElementById('retry-bar').classList.add('visible');
+  const retryBar = document.getElementById('retry-bar');
+  const retryMsg = document.getElementById('retry-msg');
+  const retryBtn = retryBar.querySelector('button');
+  retryMsg.textContent = msg;
+  retryBtn.textContent = retryCount < 1 ? '자동 재시도 대기' : '다시 시도';
+  retryBar.classList.add('visible');
   retryCount++;
+  rememberError(msg, 'retry');
+  setConn('offline', msg);
+  scheduleRetryHint();
 }
 
 function hideRetry() {
   document.getElementById('retry-bar').classList.remove('visible');
+  clearTimeout(retryTimer);
+  retryTimer = null;
   retryCount = 0;
 }
 
@@ -1533,6 +1822,7 @@ async function sendMessage() {
   }
 
   if (text.startsWith('/')) {
+    saveRecentCommand(text);
     addMsg('user', text, null, { img: attachedImage?.data_url });
     attachedImage = null;
     updateAttachPreview();
@@ -1552,9 +1842,37 @@ async function sendMessage() {
     } catch (e) {
       rmTyping();
       if (retryCount < 2 && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed'))) {
-        showRetry(e.message);
+        showRetry('명령 전송 실패, 연결 확인 후 다시 시도해 주세요');
       } else {
-        addMsg('system', 'Error: ' + e.message);
+        rememberError(e.message, 'command');
+        addMsg('system', e.message);
+      }
+    }
+    stopStreaming();
+    return;
+  }
+
+  // Composer-routed session send
+  if (composerSessionTarget) {
+    const routed = `/session send ${composerSessionTarget.target} ${text}`;
+    addMsg('user', `↪ ${composerSessionTarget.label}\n${text}`, null, { img: attachedImage?.data_url });
+    attachedImage = null;
+    updateAttachPreview();
+    lastRequest = { text: routed, isCommand: true, body: { command: '/session send', args: `${composerSessionTarget.target} ${text}` } };
+    addTyping();
+    startStreaming();
+    try {
+      const r = await api('/api/command', { method: 'POST', body: lastRequest.body });
+      rmTyping();
+      addMsg('command', r.output || '(no output)');
+      WebApp?.HapticFeedback?.impactOccurred('light');
+    } catch (e) {
+      rmTyping();
+      if (retryCount < 2) {
+        showRetry('세션 전송 실패, 잠시 후 다시 시도해 주세요');
+      } else {
+        rememberError(e.message, 'session-send');
+        addMsg('system', e.message);
       }
     }
     stopStreaming();
@@ -1586,9 +1904,12 @@ async function sendMessage() {
     if (!r.ok) {
       rmTyping();
       if (retryCount < 2 && (r.status >= 500 || r.status === 0)) {
-        showRetry(`서버 오류 ${r.status}`);
+        showRetry(`서버 오류 ${r.status}, 다시 시도할 수 있어요`);
       } else {
-        addMsg('system', `Error: ${r.status}`);
+        const body = await r.text().catch(() => '');
+        const msg = explainHttpError(r.status, body, r.statusText);
+        rememberError(msg, 'chat');
+        addMsg('system', msg);
       }
       stopStreaming();
       return;
@@ -1600,9 +1921,11 @@ async function sendMessage() {
     if (e.message === 'Stream cancelled') {
       addMsg('system', '취소되었습니다');
     } else if (retryCount < 2) {
-      showRetry(e.message === 'The user aborted a request' ? '요청이 취소되었습니다' : e.message);
+      showRetry(e.message === 'The user aborted a request' ? '요청이 취소되었습니다' : '응답 수신 실패, 다시 시도해 주세요');
     } else {
-      addMsg('system', '연결 상태: ' + e.message);
+      const msg = e.message === 'The user aborted a request' ? '요청이 취소되었습니다' : e.message;
+      rememberError(msg, 'chat');
+      addMsg('system', msg);
     }
   }
   stopStreaming();
@@ -1610,6 +1933,7 @@ async function sendMessage() {
 
 async function retryLast() {
   if (!lastRequest) return;
+  await checkConn();
   hideRetry();
   if (lastRequest.isCommand) {
     input.value = lastRequest.text;
@@ -1725,10 +2049,13 @@ async function loadStatus() {
   const bar = document.getElementById('status-bar');
   const content = document.getElementById('status-content');
   bar.innerHTML = `<div class="status-chip warn"><span class="status-dot"></span>불러오는 중...</div>`;
-  content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">상태 정보를 불러오는 중...</div>`;
+  content.innerHTML = renderPanelLoading(3);
 
   try {
-    const s = await api('/api/runtime-status');
+    const [s, diag] = await Promise.all([
+      api('/api/runtime-status'),
+      api('/api/diagnostics').catch(() => ({})),
+    ]);
     const gateway = s?.gateway || {};
     const tasks = s?.tasks || {};
     const sessions = s?.sessions || {};
@@ -1742,9 +2069,19 @@ async function loadStatus() {
       <div class="status-chip ${gateway.reachable ? 'ok' : 'error'}"><span class="status-dot"></span>${gateway.reachable ? '온라인' : '오프라인'}</div>
       <div class="status-chip ${tasks.active > 0 ? 'ok' : 'warn'}"><span class="status-dot"></span>활성 작업 ${tasks.active ?? 0}</div>
       <div class="status-chip ${sessions.count > 0 ? 'ok' : 'warn'}"><span class="status-dot"></span>세션 ${sessions.count ?? 0}</div>
+      ${lastErrorState ? `<div class="status-chip error"><span class="status-dot"></span>최근 오류</div>` : ''}
     `;
 
+    const externalDetail = String(diag?.external_probe?.detail || '');
+    const has1033 = externalDetail.includes('1033');
+    const has1010 = externalDetail.includes('1010');
+    const showAlert = has1033 || has1010 || (diag?.external_probe?.configured && diag?.external_probe?.reachable === false);
+    const alertHtml = showAlert
+      ? `<div class="status-alert ${has1010 ? 'warn' : ''}"><div class="status-alert-title">${has1010 ? 'Cloudflare 보안 차단 감지' : has1033 ? 'Cloudflare Tunnel 연결 문제 감지' : '외부 접속 이상 감지'}</div><div class="status-alert-body">${has1010 ? '현재 외부 요청이 Cloudflare 보안 규칙(1010)에 막히고 있어요. WAF / Security Events를 확인해 주세요.' : has1033 ? 'hostname이 현재 tunnel connector에 제대로 붙지 않았어요. Public Hostname과 tunnel 연결을 다시 확인해 주세요.' : '브리지 내부는 살아있지만 외부 public origin 접속이 실패하고 있어요. Cloudflare 쪽 상태를 확인해 주세요.'}</div></div>`
+      : '';
+
     content.innerHTML = `
+      ${alertHtml}
       <div class="section">
         <div class="section-header"><h2>OpenClaw 런타임</h2></div>
         <div class="item"><div class="item-label">버전</div><div class="item-value">${esc(s.runtime_version || '—')}</div></div>
@@ -1782,6 +2119,23 @@ async function loadStatus() {
       </div>
 
       <div class="section">
+        <div class="section-header"><h2>접속 진단</h2></div>
+        <div class="item"><div class="item-label">Public origin</div><div class="item-value">${diag?.bridge?.public_origin_configured ? esc(diag.bridge.public_origin) : '미설정'}</div></div>
+        <div class="item"><div class="item-label">현재 접속</div><div class="item-value">${esc(window.location.origin)}</div></div>
+        <div class="item"><div class="item-label">Gateway 연결</div><div class="item-value ${diag?.gateway?.reachable ? 'positive' : 'negative'}">${diag?.gateway?.reachable ? '정상' : '불안정'}</div></div>
+        <div class="item"><div class="item-label">Cloudflared 서비스</div><div class="item-value ${(diag?.cloudflared?.launch_agent_running && (diag?.cloudflared?.matching_processes || 0) >= 1) ? 'positive' : 'negative'}">${diag?.cloudflared?.launch_agent_running ? '실행 중' : '중지됨'}</div></div>
+        <div class="item"><div class="item-label">Tunnel 프로세스 수</div><div class="item-value ${((diag?.cloudflared?.matching_processes || 0) > 1) ? 'negative' : 'positive'}">${diag?.cloudflared?.matching_processes ?? 0}</div></div>
+        <div class="item"><div class="item-label">외부 health probe</div><div class="item-value ${diag?.external_probe?.reachable ? 'positive' : 'negative'}">${diag?.external_probe?.configured ? (diag?.external_probe?.reachable ? '정상' : '실패') : '미설정'}</div></div>
+        <div class="item"><div class="item-label">외부 응답</div><div class="item-value" style="white-space:pre-wrap;text-align:right">${diag?.external_probe?.status ? 'HTTP ' + diag.external_probe.status : '—'}${diag?.external_probe?.detail ? ' · ' + esc(diag.external_probe.detail) : ''}</div></div>
+        <div class="item"><div class="item-label">Telegram Bot token</div><div class="item-value">${diag?.auth?.telegram_bot_token_configured ? '설정됨' : '없음'}</div></div>
+        <div class="item"><div class="item-label">Ed25519 검증</div><div class="item-value">${diag?.auth?.ed25519_available ? '사용 가능' : '미사용'}</div></div>
+        <div class="item"><div class="item-label">Fallback Bearer</div><div class="item-value">${diag?.auth?.shared_token_configured ? '설정됨' : '없음'}</div></div>
+        <div class="item"><div class="item-label">판단</div><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'public origin 불일치' : '브리지 기준 정상'}</div></div>
+        ${lastErrorState ? `<div class="item"><div class="item-label">마지막 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>
+        <div class="item"><div class="item-label">오류 상태</div><div class="item-value"><button class="qbtn reload" style="padding:6px 10px;font-size:11px" onclick="clearLastErrorAndRefresh()">오류 지우기</button></div></div>` : `<div class="item"><div class="item-label">마지막 오류</div><div class="item-value positive">없음</div></div>`}
+      </div>
+
+      <div class="section">
         <div class="section-header"><h2>채널 및 디버그</h2></div>
         <div class="item"><div class="item-label">모델</div><div class="item-value">${_modelInfo ? esc(_modelInfo.model_short) + ' <span style="color:var(--hint)">via ' + esc(_modelInfo.provider || '?') + '</span>' : '—'}</div></div>
         <div class="item"><div class="item-label">컨텍스트</div><div class="item-value">${_modelInfo?.context_length ? _fmtTokens(_sessionUsage.prompt_tokens) + ' / ' + _fmtTokens(_modelInfo.context_length) + ' 사용 중' : '—'}</div></div>
@@ -1805,23 +2159,468 @@ async function loadStatus() {
       </div>
     `;
   } catch (e) {
+    rememberError(e.message, 'status');
     bar.innerHTML = `<div class="status-chip error"><span class="status-dot"></span>오프라인</div>`;
     content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}<br><br>이제 상태 패널은 OpenClaw runtime-status endpoint를 사용합니다.</div></div>`;
   }
 }
 
-function quickCmd(cmd) { switchTab('terminal'); input.value = cmd + ' '; sendMessage(); }
+function renderFavoriteCommands() {
+  const wrap = document.getElementById('favorite-cmds');
+  if (!wrap) return;
+  const favorites = getFavoriteCommands().slice(0, 8);
+  if (!favorites.length) {
+    wrap.classList.remove('visible');
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = favorites.map(cmd => `<button class="favorite-cmd-chip" onclick="useRecentCommand('${escAttr(cmd)}')">${esc(cmd)}</button>`).join('');
+  wrap.classList.add('visible');
+}
+function getRecentCommands() {
+  try { return JSON.parse(localStorage.getItem('openclaw_recent_commands') || '[]'); }
+  catch (_) { return []; }
+}
+function saveRecentCommand(cmd) {
+  if (!cmd || !cmd.trim() || !cmd.trim().startsWith('/')) return;
+  const cleaned = cmd.trim();
+  recentCommands = [cleaned, ...getRecentCommands().filter(v => v !== cleaned)].slice(0, 8);
+  try { localStorage.setItem('openclaw_recent_commands', JSON.stringify(recentCommands)); } catch (_) {}
+  renderRecentCommands();
+}
+function clearRecentCommands() {
+  recentCommands = [];
+  try { localStorage.removeItem('openclaw_recent_commands'); } catch (_) {}
+  renderRecentCommands();
+  toast('최근 명령을 비웠어요', 1400, true);
+}
+function useRecentCommand(cmd) {
+  switchTab('terminal');
+  input.value = cmd;
+  input.focus();
+  resize(input);
+}
+function renderRecentCommands() {
+  const wrap = document.getElementById('recent-cmds');
+  if (!wrap) return;
+  recentCommands = getRecentCommands();
+  if (!recentCommands.length) {
+    wrap.classList.remove('visible');
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = recentCommands.map((cmd, idx) => `<button class="recent-cmd-chip ${idx === 0 ? 'primary' : ''}" onclick="useRecentCommand('${escAttr(cmd)}')">${esc(cmd)}</button>`).join('') + `<button class="recent-cmd-clear" onclick="clearRecentCommands()">지우기</button>`;
+  wrap.classList.add('visible');
+}
+function quickCmd(cmd) { switchTab('terminal'); input.value = cmd + ' '; resize(input); sendMessage(); }
+function fillCmd(cmd) { switchTab('terminal'); input.value = cmd; input.focus(); resize(input); }
+function fmtAge(ms) {
+  if (ms == null) return '—';
+  const sec = Math.max(1, Math.floor(ms / 1000));
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  return `${Math.floor(hr / 24)}d`;
+}
+function historyCmd(target, limit = 10) {
+  return `/session history ${target} ${limit}`;
+}
+function quickCmdWithPrompt(prefix, promptText) {
+  const value = prompt(promptText || '값을 입력하세요');
+  if (!value || !value.trim()) return;
+  quickCmd(`${prefix} ${value.trim()}`);
+}
+async function copyText(text, label = '복사') {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      toast(`${label} 완료`, 1800, true);
+      return;
+    }
+  } catch (_) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(`${label} 완료`, 1800, true);
+  } catch (e) {
+    toast(`${label} 실패`, 1800, false);
+  }
+}
+
+async function subagentAct(action, target, message = '') {
+  const body = { action };
+  if (target) body.target = target;
+  if (message) body.message = message;
+  try {
+    const res = await api('/api/subagents', { method: 'POST', body });
+    if (res?.text) toast(res.text, 2600, !!res.ok);
+    else toast(`subagent ${action} 완료`, 2200, true);
+    await Promise.allSettled([loadAgents(), loadSessions()]);
+  } catch (e) {
+    toast('Subagent 제어 실패: ' + e.message);
+  }
+}
+
+function steerSubagent(target, label) {
+  const message = prompt(`${label || 'subagent'} 에 전달할 지시를 입력하세요`);
+  if (!message || !message.trim()) return;
+  WebApp?.HapticFeedback?.impactOccurred('medium');
+  subagentAct('steer', target, message.trim());
+}
+
+function killSubagent(target, label) {
+  if (!confirm(`${label || 'subagent'} 실행을 중단할까요?`)) return;
+  WebApp?.HapticFeedback?.notificationOccurred?.('warning');
+  subagentAct('kill', target);
+}
+
+function setComposerTarget(target, label) {
+  composerSessionTarget = { target, label: label || 'session' };
+  const wrap = document.getElementById('composer-target');
+  const meta = document.getElementById('composer-target-meta');
+  meta.textContent = `${composerSessionTarget.label} → ${target}`;
+  wrap.classList.add('visible');
+  switchTab('terminal');
+  input.focus();
+  toast('이제 입력창에서 바로 이 세션으로 보냅니다', 1800, true);
+}
+
+function clearComposerTarget() {
+  composerSessionTarget = null;
+  document.getElementById('composer-target').classList.remove('visible');
+}
+
+function sessionSendPrompt(target, label) {
+  const message = prompt(`${label || 'session'} 에 보낼 메시지를 입력하세요`);
+  if (!message || !message.trim()) return;
+  quickCmd(`/session send ${target} ${message.trim()}`);
+}
+
+function sessionHistoryPrompt(target, label) {
+  const raw = prompt(`${label || 'session'} history 길이 (기본 10)`, '10');
+  if (raw == null) return;
+  const limit = Math.max(1, Math.min(50, parseInt(raw || '10', 10) || 10));
+  quickCmd(historyCmd(target, limit));
+}
+
+function sessionTargetPicker(sessions, onPick) {
+  if (!sessions?.length) {
+    toast('선택할 세션이 없어요');
+    return;
+  }
+  const menu = sessions.slice(0, 12).map((s, i) => `${i + 1}. ${s.agent_id || s.displayName || 'session'} · ${s.model || '—'} · ${fmtAge(s.age_ms)}`).join('\n');
+  const raw = prompt(`대상 세션 번호를 고르세요\n\n${menu}`);
+  if (!raw) return;
+  const idx = parseInt(raw, 10) - 1;
+  if (Number.isNaN(idx) || idx < 0 || idx >= sessions.length) {
+    toast('잘못된 번호예요');
+    return;
+  }
+  onPick(sessions[idx]);
+}
+
+function sendToPickedSession(sessions) {
+  sessionTargetPicker(sessions, s => setComposerTarget(s.session_id || s.key || '', s.agent_id || 'session'));
+}
+
+function tryParseJson(text) {
+  try { return JSON.parse(text); } catch (_) { return null; }
+}
+
+async function fetchCommandOutput(command, args = '') {
+  const res = await api('/api/command', { method: 'POST', body: { command, args } });
+  return res?.output || '';
+}
+
+function extractHistoryText(entry) {
+  const content = entry?.content || [];
+  if (typeof content === 'string') return content;
+  const parts = [];
+  for (const item of content) {
+    if (item?.type === 'text' && item.text) parts.push(item.text);
+    if (item?.type === 'input_text' && item.text) parts.push(item.text);
+  }
+  return parts.join('\n').trim();
+}
+
+function isMeaningfulHistoryEntry(entry) {
+  const text = extractHistoryText(entry);
+  return !!(text && text.trim());
+}
+
+function historyRoleIcon(role) {
+  if (role === 'user') return '👤';
+  if (role === 'assistant') return '🤖';
+  if (role === 'system') return '⚙️';
+  if (role === 'command') return '⌘';
+  return '•';
+}
+
+function renderHistoryCards(data) {
+  const messages = (data?.messages || []).filter(isMeaningfulHistoryEntry);
+  if (!messages.length) return `<div class="history-empty">텍스트로 표시할 기록이 없어요.</div>`;
+  return messages.map((m, idx) => {
+    const role = m.role || 'message';
+    const text = extractHistoryText(m) || '(텍스트 없음)';
+    const collapsed = text.length > 520 || (text.match(/\n/g) || []).length > 8;
+    const meta = [`#${idx + 1}`, collapsed ? 'long' : 'short'].join(' · ');
+    return `<div class="history-card ${esc(role)}"><div class="history-head"><div class="history-role-wrap"><div class="history-icon">${historyRoleIcon(role)}</div><div class="history-role ${esc(role)}">${esc(role)}</div></div><div class="history-meta">${meta}</div></div><div class="history-text ${collapsed ? 'collapsed' : ''}" id="history-text-${idx}">${renderMsg(text)}</div>${collapsed ? `<button class="history-toggle" onclick="toggleHistoryCard(${idx}, this)">더 보기</button>` : ''}</div>`;
+  }).join('');
+}
+
+function toggleHistoryCard(idx, btn) {
+  const el = document.getElementById(`history-text-${idx}`);
+  if (!el) return;
+  const collapsed = el.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '더 보기' : '접기';
+}
+
+function renderDetailTabs(target, label, mode) {
+  const safeTarget = JSON.stringify(target || '');
+  const safeLabel = JSON.stringify(label || 'session');
+  const tab = (name, caption) => `<button class="detail-tab ${mode === name ? 'active' : ''}" onclick='openSessionDetail(${safeTarget}, ${safeLabel}, "${name}")'>${caption}</button>`;
+  return `<div class="detail-tabs">${tab('summary','summary')}${tab('status','status')}${tab('history','history')}</div>`;
+}
+
+function stripLeadingEmoji(text) {
+  return String(text || '').replace(/^([\p{Extended_Pictographic}\uFE0F\u200D]+\s*)+/u, '').trim();
+}
+
+function parseKeyValueOutput(output) {
+  const lines = String(output || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const rows = [];
+  for (const line of lines) {
+    const normalized = stripLeadingEmoji(line);
+    const match = normalized.match(/^([^:]+):\s*(.+)$/);
+    if (!match) return null;
+    rows.push({ key: match[1].trim(), value: match[2].trim() });
+  }
+  return rows.length ? rows : null;
+}
+
+function renderStatusLikeCard(output) {
+  const rows = parseKeyValueOutput(output);
+  if (!rows) return null;
+  return `<div class="kv-card">${rows.map(r => `<div class="kv-row"><div class="kv-key">${esc(r.key)}</div><div class="kv-value">${renderMsg(r.value)}</div></div>`).join('')}</div>`;
+}
+
+function renderKeyValueCard(output, mode = '') {
+  const statusCard = mode === 'status' ? renderStatusLikeCard(output) : null;
+  if (statusCard) return statusCard;
+  const rows = parseKeyValueOutput(output);
+  if (!rows) return `<div class="history-card"><div class="history-text">${renderMsg(output)}</div></div>`;
+  return `<div class="kv-card">${rows.map(r => `<div class="kv-row"><div class="kv-key">${esc(r.key)}</div><div class="kv-value">${renderMsg(r.value)}</div></div>`).join('')}</div>`;
+}
+
+async function openDetailModal(title, html) {
+  document.getElementById('detail-modal-title').textContent = title;
+  document.getElementById('detail-modal-body').innerHTML = html;
+  document.getElementById('detail-modal-overlay').classList.add('open');
+}
+
+function closeDetailModal(event) {
+  if (event && event.target !== document.getElementById('detail-modal-overlay')) return;
+  document.getElementById('detail-modal-overlay').classList.remove('open');
+}
+
+async function openSessionDetail(target, label, mode = 'summary') {
+  try {
+    const safeTarget = JSON.stringify(target || '');
+    const safeLabel = JSON.stringify(label || 'session');
+    const actions = renderDetailTabs(target, label, mode) + `
+      <div class="quick-grid" style="padding:0 0 12px">
+        <button class="qbtn" onclick='setComposerTarget(${safeTarget}, ${safeLabel}); closeDetailModal();'>send</button>
+        <button class="qbtn" onclick='copyText(${safeTarget}, "세션 키 복사")'>키 복사</button>
+      </div>`;
+    if (mode === 'history') {
+      const output = await fetchCommandOutput(`/session history ${target} 12`);
+      const data = tryParseJson(output);
+      await openDetailModal(`${label || 'session'} history`, actions + (data ? renderHistoryCards(data) : `<div class="history-card"><div class="history-text">${renderMsg(output)}</div></div>`));
+      return;
+    }
+    const output = await fetchCommandOutput(`/session ${mode} ${target}`);
+    await openDetailModal(`${label || 'session'} ${mode}`, actions + renderKeyValueCard(output, mode));
+  } catch (e) {
+    toast('상세 보기 실패: ' + e.message);
+  }
+}
+
+function getFavoriteSessionKeys() {
+  try { return JSON.parse(localStorage.getItem('openclaw_session_favorites') || '[]'); }
+  catch (_) { return []; }
+}
+
+function getSessionsViewMode() {
+  try { return localStorage.getItem('openclaw_sessions_view_mode') || sessionsViewMode || 'comfy'; }
+  catch (_) { return sessionsViewMode || 'comfy'; }
+}
+
+function setSessionsViewMode(mode) {
+  sessionsViewMode = mode === 'compact' ? 'compact' : 'comfy';
+  try { localStorage.setItem('openclaw_sessions_view_mode', sessionsViewMode); } catch (_) {}
+  loadSessions();
+}
+
+function getAgentsViewMode() {
+  try { return localStorage.getItem('openclaw_agents_view_mode') || agentsViewMode || 'comfy'; }
+  catch (_) { return agentsViewMode || 'comfy'; }
+}
+
+function setAgentsViewMode(mode) {
+  agentsViewMode = mode === 'compact' ? 'compact' : 'comfy';
+  try { localStorage.setItem('openclaw_agents_view_mode', agentsViewMode); } catch (_) {}
+  loadAgents();
+}
+
+function isFavoriteSession(key) {
+  return !!key && getFavoriteSessionKeys().includes(key);
+}
+
+function toggleFavoriteSession(key) {
+  if (!key) return;
+  const favs = getFavoriteSessionKeys();
+  const next = favs.includes(key) ? favs.filter(v => v !== key) : [key, ...favs];
+  try { localStorage.setItem('openclaw_session_favorites', JSON.stringify(next)); } catch (_) {}
+  loadSessions();
+}
+
+function sortSessionsList(list) {
+  return [...list].sort((a, b) => {
+    const af = isFavoriteSession(a.key || a.session_id) ? 1 : 0;
+    const bf = isFavoriteSession(b.key || b.session_id) ? 1 : 0;
+    if (af !== bf) return bf - af;
+    const aa = a.age_ms ?? Number.MAX_SAFE_INTEGER;
+    const ba = b.age_ms ?? Number.MAX_SAFE_INTEGER;
+    if (aa !== ba) return aa - ba;
+    return String(a.agent_id || a.key || '').localeCompare(String(b.agent_id || b.key || ''));
+  });
+}
+
+function filterSessionsList(value) {
+  sessionsFilter = (value || '').toLowerCase();
+  loadSessions();
+}
+
+function renderPanelLoading(lines = 3) {
+  return `<div class="loading-skeleton">${Array.from({ length: lines }).map(() => `
+    <div class="skeleton-card">
+      <div class="skeleton-line w40"></div>
+      <div class="skeleton-line w100"></div>
+      <div class="skeleton-line w85"></div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function renderSessionCard(s, compact = false) {
+  const key = JSON.stringify(s.key || '');
+  const target = JSON.stringify(s.key || s.session_id || '');
+  const sendTarget = JSON.stringify(s.session_id || s.key || '');
+  const label = JSON.stringify(s.agent_id || 'session');
+  const isSub = String(s.key || '').includes(':subagent:');
+  if (compact) {
+    return `
+      <div style="margin:6px 10px 8px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:12px">
+        <div class="item-topline" style="padding:0 0 6px;border-top:none"><div class="item-label-row"><button class="favorite-btn ${isFavoriteSession(s.key || s.session_id) ? 'active' : ''}" onclick='toggleFavoriteSession(${JSON.stringify(s.key || s.session_id || '')})'>★</button><div class="item-label" style="font-size:11px">${esc(s.agent_id || 'agent')}</div></div><div class="item-value" style="font-size:11px">${fmtAge(s.age_ms)}</div></div>
+        <div class="badge-row" style="padding:0 0 6px; gap:4px">
+          <span class="mini-badge info">${esc(s.kind || '—')}</span>
+          <span class="mini-badge ${s.percent_used >= 70 ? 'warn' : 'ok'}">ctx ${s.percent_used != null ? s.percent_used + '%' : '—'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='openSessionDetail(${target}, ${label}, "summary")'>요약</button>
+          <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='setComposerTarget(${sendTarget}, ${label})'>보내기</button>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="item-topline"><div class="item-label-row"><button class="favorite-btn ${isFavoriteSession(s.key || s.session_id) ? 'active' : ''}" onclick='toggleFavoriteSession(${JSON.stringify(s.key || s.session_id || '')})'>★</button><div class="item-label">${esc(s.agent_id || 'agent')}</div></div><div class="item-value">${esc(s.model || '—')} · ${s.percent_used != null ? s.percent_used + '%' : 'ctx —'}</div></div>
+    <div class="badge-row">
+      <span class="mini-badge info">${esc(s.kind || '—')}</span>
+      <span class="mini-badge ${s.percent_used >= 70 ? 'warn' : 'ok'}">ctx ${s.percent_used != null ? s.percent_used + '%' : '—'}</span>
+      <span class="mini-badge info">age ${fmtAge(s.age_ms)}</span>
+      <span class="mini-badge info">tok ${s.total_tokens ? _fmtTokens(s.total_tokens) : '—'}</span>
+    </div>
+    <div class="item"><div class="item-label">세션 ID</div><div class="item-value mono">${esc(s.session_id || '—')}</div></div>
+    <div class="item"><div class="item-label">키</div><div class="item-value mono">${esc(s.key || '—')}</div></div>
+    <div class="item"><div class="item-label">요약</div><div class="item-stack"><div class="item-value">${s.context_tokens ? _fmtTokens(s.context_tokens) : '—'} ctx</div><div class="item-sub">${isSub ? 'subagent 세션' : '일반 세션'}</div></div></div>
+    <div class="quick-grid" style="padding:0 12px 12px">
+      <button class="qbtn" onclick='copyText(${key}, "세션 키 복사")'>키 복사</button>
+      <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "summary")'>summary</button>
+      <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "status")'>status</button>
+      <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "history")'>history</button>
+      <button class="qbtn" onclick='setComposerTarget(${sendTarget}, ${label})'>send</button>
+      ${isSub ? `<button class="qbtn" onclick='steerSubagent(${key}, ${JSON.stringify(s.agent_id || 'subagent')})'>지시</button>` : `<button class="qbtn" onclick='fillCmd(${JSON.stringify('/usage')})'>usage</button>`}
+      ${isSub ? `<button class="qbtn danger" onclick='killSubagent(${key}, ${JSON.stringify(s.agent_id || 'subagent')})'>중단</button>` : `<button class="qbtn" onclick='fillCmd(${JSON.stringify('/runtime')})'>runtime</button>`}
+    </div>
+    <div style="height:1px;background:var(--border);margin:8px 0"></div>
+  `;
+}
+
+function renderSubagentCard(s, compact = false, recent = false) {
+  const key = JSON.stringify(s.key || s.run_id || '');
+  const target = JSON.stringify(s.key || s.session_id || '');
+  const label = JSON.stringify(s.label || 'subagent');
+  if (compact) {
+    return `
+      <div style="margin:6px 10px 8px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:12px">
+        <div class="item-topline" style="padding:0 0 6px;border-top:none"><div class="item-label-row"><div class="item-label" style="font-size:11px">${esc(s.label || 'subagent')}</div></div><div class="item-value" style="font-size:11px">${esc(s.status || (recent ? 'done' : 'running'))}</div></div>
+        <div class="badge-row" style="padding:0 0 6px; gap:4px">
+          <span class="mini-badge ok">runtime ${esc(s.runtime || '—')}</span>
+          ${recent ? '' : `<span class="mini-badge ${(s.pending_descendants ? 'warn' : 'info')}">desc ${esc(s.pending_descendants ?? 0)}</span>`}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='openSessionDetail(${target}, ${label}, "summary")'>요약</button>
+          ${recent ? `<button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='openSessionDetail(${target}, ${label}, "status")'>상태</button>` : `<button class="qbtn danger" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='killSubagent(${key}, ${label})'>중단</button>`}
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="item"><div class="item-label">${esc(s.label || 'subagent')}</div><div class="item-value">${esc(s.model || '—')} · ${esc(s.status || (recent ? 'done' : 'running'))}</div></div>
+    <div class="badge-row">
+      <span class="mini-badge ${recent ? 'info' : 'ok'}">runtime ${esc(s.runtime || '—')}</span>
+      <span class="mini-badge info">tokens ${s.total_tokens ? _fmtTokens(s.total_tokens) : '—'}</span>
+      ${recent ? '' : `<span class="mini-badge ${(s.pending_descendants ? 'warn' : 'info')}">desc ${esc(s.pending_descendants ?? 0)}</span>`}
+    </div>
+    ${s.task && !recent ? `<div class="item"><div class="item-label">작업</div><div class="item-value" style="white-space:pre-wrap;text-align:right">${esc(s.task)}</div></div>` : ''}
+    <div class="item"><div class="item-label">세션</div><div class="item-value mono">${esc(s.session_id || s.key || '—')}</div></div>
+    ${recent ? '' : `<div class="item"><div class="item-label">세션 키</div><div class="item-value mono">${esc(s.key || '—')}</div></div>`}
+    ${recent ? '' : `<div class="item"><div class="item-label">런 ID</div><div class="item-value mono">${esc(s.run_id || '—')}</div></div>`}
+    ${s.started_at && !recent ? `<div class="item"><div class="item-label">시작</div><div class="item-value">${esc(new Date(s.started_at).toLocaleString())}</div></div>` : ''}
+    ${s.ended_at && recent ? `<div class="item"><div class="item-label">종료</div><div class="item-value">${esc(new Date(s.ended_at).toLocaleString())}</div></div>` : ''}
+    <div class="quick-grid" style="padding:0 12px 12px">
+      <button class="qbtn" onclick='copyText(${key}, "subagent 키 복사")'>키 복사</button>
+      <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "summary")'>요약</button>
+      <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "history")'>history</button>
+      ${recent ? '' : `<button class="qbtn" onclick='steerSubagent(${key}, ${label})'>지시 보내기</button>`}
+      ${recent ? '' : `<button class="qbtn danger" onclick='killSubagent(${key}, ${label})'>중단</button>`}
+    </div>
+    <div style="height:1px;background:var(--border);margin:${recent ? '8px 0' : '0 0 8px'}"></div>
+  `;
+}
 
 // ─── AGENTS ───────────────────────────────────────────────────────────────
 async function loadAgents() {
   const content = document.getElementById('agents-content');
-  content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">에이전트 상태를 불러오는 중...</div>';
+  content.innerHTML = renderPanelLoading(3);
   try {
     const [subs, runtime] = await Promise.all([
       api('/api/subagents').catch(() => ({ subagents: [] })),
       api('/api/runtime-status')
     ]);
+    agentsViewMode = getAgentsViewMode();
     const subagents = subs?.subagents || [];
+    const activeSubs = subs?.active || subagents.filter(s => s.active);
+    const recentSubs = subs?.recent || subagents.filter(s => !s.active);
     const heartbeatAgents = runtime?.heartbeat?.agents || [];
     const enabledAgents = heartbeatAgents.filter(a => a.enabled);
     let html = `
@@ -1842,11 +2641,19 @@ async function loadAgents() {
     `;
     html += `
       <div class="section">
+        <div class="section-header"><h2>활성 Sub-Agent</h2><span class="badge">${activeSubs.length}</span></div>
+        <div class="quick-grid" style="padding:0 12px 10px">
+          <button class="qbtn ${agentsViewMode === 'comfy' ? 'reload' : ''}" onclick="setAgentsViewMode('comfy')">자세히</button>
+          <button class="qbtn ${agentsViewMode === 'compact' ? 'reload' : ''}" onclick="setAgentsViewMode('compact')">간단히</button>
+        </div>
+        <div style="padding:0 14px 10px;font-size:10px;color:var(--hint)">${agentsViewMode === 'compact' ? '핵심 정보와 빠른 동작만 표시합니다.' : '세부 정보와 추가 동작 버튼까지 표시합니다.'}</div>
+        ${activeSubs.length ? activeSubs.map(s => renderSubagentCard(s, agentsViewMode === 'compact', false)).join('') : '<div class="item"><div class="item-label">subagent</div><div class="item-value">활성 실행 없음</div></div>'}
+      </div>
+    `;
+    html += `
+      <div class="section">
         <div class="section-header"><h2>최근 Sub-Agent 세션</h2></div>
-        ${subagents.length ? subagents.map(s => `
-          <div class="item"><div class="item-label">${esc(s.agent_id || 'subagent')}</div><div class="item-value">${esc(s.model || '—')} · ${s.percent_used != null ? s.percent_used + '%' : 'ctx —'}</div></div>
-          <div class="item"><div class="item-label">세션</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(s.session_id || s.key || '—')}</div></div>
-        `).join('') : '<div class="item"><div class="item-label">subagent</div><div class="item-value">최근 세션 없음</div></div>'}
+        ${recentSubs.length ? recentSubs.map(s => renderSubagentCard(s, agentsViewMode === 'compact', true)).join('') : '<div class="item"><div class="item-label">subagent</div><div class="item-value">최근 세션 없음</div></div>'}
       </div>
     `;
     html += `
@@ -1869,29 +2676,35 @@ async function loadAgents() {
 // ─── SESSIONS ─────────────────────────────────────────────────────────────
 async function loadSessions() {
   const content = document.getElementById('sessions-content');
-  content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">세션 정보를 불러오는 중...</div>';
+  content.innerHTML = renderPanelLoading(4);
   try {
     const runtime = await api('/api/runtime-status');
-    const sessions = runtime?.sessions?.recent || [];
+    sessionsViewMode = getSessionsViewMode();
+    currentSessions = sortSessionsList(runtime?.sessions?.recent || []);
+    const sessions = currentSessions.filter(s => {
+      if (!sessionsFilter) return true;
+      const hay = [s.agent_id, s.model, s.kind, s.session_id, s.key].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(sessionsFilter);
+    });
+    const activeCount = currentSessions.filter(s => (s.kind || '').includes('direct')).length;
     let html = `
       <div class="section">
         <div class="section-header"><h2>세션 개요</h2></div>
         <div class="item"><div class="item-label">전체 세션</div><div class="item-value">${runtime?.sessions?.count ?? 0}</div></div>
         <div class="item"><div class="item-label">최근 표시</div><div class="item-value">${sessions.length}</div></div>
+        <div class="item"><div class="item-label">활성 direct</div><div class="item-value">${activeCount}</div></div>
       </div>
     `;
     html += `
       <div class="section">
-        <div class="section-header"><h2>최근 세션</h2></div>
-        ${sessions.length ? sessions.map(s => `
-          <div class="item"><div class="item-label">${esc(s.agent_id || 'agent')}</div><div class="item-value">${esc(s.model || '—')} · ${s.percent_used != null ? s.percent_used + '%' : 'ctx —'}</div></div>
-          <div class="item"><div class="item-label">종류</div><div class="item-value">${esc(s.kind || '—')}</div></div>
-          <div class="item"><div class="item-label">세션 ID</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(s.session_id || '—')}</div></div>
-          <div class="item"><div class="item-label">키</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(s.key || '—')}</div></div>
-          <div class="item"><div class="item-label">토큰</div><div class="item-value">${s.total_tokens ? _fmtTokens(s.total_tokens) : '—'}</div></div>
-          <div class="item"><div class="item-label">컨텍스트</div><div class="item-value">${s.context_tokens ? _fmtTokens(s.context_tokens) : '—'}</div></div>
-          <div style="height:1px;background:var(--border);margin:8px 0"></div>
-        `).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
+        <div class="section-header"><h2>최근 세션</h2><span class="badge">★ ${getFavoriteSessionKeys().length}</span></div>
+        <div style="padding:0 14px 10px"><input style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 10px;color:var(--text);font-family:inherit;font-size:12px" placeholder="세션 검색" value="${escAttr(sessionsFilter)}" oninput="filterSessionsList(this.value)"></div>
+        <div class="quick-grid" style="padding:0 12px 10px">
+          <button class="qbtn ${sessionsViewMode === 'comfy' ? 'reload' : ''}" onclick="setSessionsViewMode('comfy')">자세히</button>
+          <button class="qbtn ${sessionsViewMode === 'compact' ? 'reload' : ''}" onclick="setSessionsViewMode('compact')">간단히</button>
+        </div>
+        <div style="padding:0 14px 10px;font-size:10px;color:var(--hint)">${sessionsViewMode === 'compact' ? '핵심 정보와 빠른 동작만 표시합니다.' : '세션 ID, 키, 요약, 추가 동작까지 표시합니다.'}</div>
+        ${sessions.length ? sessions.map(s => renderSessionCard(s, sessionsViewMode === 'compact')).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
       </div>
     `;
     html += `
@@ -1902,6 +2715,9 @@ async function loadSessions() {
           <button class="qbtn" onclick="switchTab('agents')">에이전트</button>
           <button class="qbtn" onclick="switchTab('status')">런타임</button>
           <button class="qbtn" onclick="quickCmd('/status')">상태 요약</button>
+          <button class="qbtn" onclick="quickCmdWithPrompt('/session new', '새 세션에 보낼 첫 메시지를 입력하세요')">새 세션</button>
+          <button class="qbtn" onclick="fillCmd('/session send ')">send 템플릿</button>
+          <button class="qbtn" onclick='sendToPickedSession(currentSessions)'>대상 선택 send</button>
         </div>
       </div>
     `;
@@ -2110,29 +2926,40 @@ async function deleteCronJob(id) {
 
 // ─── CMD LIST (for autocomplete) ───────────────────────────────────────────
 window.cmdList = [
-  {name:'status', desc:'세션 정보 보기'},
-  {name:'new', desc:'새 세션 시작'},
-  {name:'stop', desc:'실행 중인 프로세스 종료'},
-  {name:'model', desc:'모델 변경', args:'[이름]'},
-  {name:'cron', desc:'예약 작업 관리', args:'[list|pause|resume|run]'},
-  {name:'config', desc:'설정 보기'},
+  {name:'status', desc:'OpenClaw 실행 상태 요약'},
+  {name:'runtime', desc:'런타임 상태 JSON 보기'},
+  {name:'model', desc:'현재 기본 모델 정보'},
+  {name:'usage', desc:'현재 세션 토큰 사용량'},
+  {name:'processes', desc:'최근 세션/프로세스 보기'},
+  {name:'sessions list', desc:'최근 세션 목록 보기'},
+  {name:'session summary', desc:'특정 세션 짧은 요약', args:'<target>'},
+  {name:'session status', desc:'특정 세션 상태 카드', args:'<target>'},
+  {name:'session history', desc:'특정 세션 최근 기록', args:'<target> [limit]'},
+  {name:'session send', desc:'특정 세션에 메시지 보내기', args:'<target> <message>'},
+  {name:'session new', desc:'새 explicit 세션 생성', args:'<message>'},
+  {name:'subagents list', desc:'subagent 목록 보기'},
+  {name:'subagents kill', desc:'subagent 종료', args:'<target>'},
+  {name:'subagents steer', desc:'subagent에 추가 지시', args:'<target> <message>'},
+  {name:'cron list', desc:'크론 작업 목록'},
+  {name:'cron run', desc:'크론 작업 즉시 실행', args:'<id>'},
+  {name:'cron pause', desc:'크론 작업 일시중지', args:'<id>'},
+  {name:'cron resume', desc:'크론 작업 재개', args:'<id>'},
+  {name:'cron show', desc:'크론 작업 상세', args:'<id>'},
   {name:'help', desc:'전체 명령 보기'},
-  {name:'commands', desc:'명령어와 스킬 탐색'},
+  {name:'commands', desc:'브리지 명령 목록 JSON 보기'},
   {name:'clear', desc:'화면 비우기'},
-  {name:'tools', desc:'도구 관리'},
-  {name:'skills', desc:'스킬 검색 및 관리'},
-  {name:'personality', desc:'성격 설정'},
-  {name:'yolo', desc:'자동 승인 전환'},
-  {name:'verbose', desc:'도구 표시 방식 변경'},
-  {name:'background', desc:'프롬프트를 백그라운드에서 실행'},
-  {name:'retry', desc:'마지막 메시지 다시 시도'},
-  {name:'history', desc:'대화 기록 보기'},
 ];
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
-(async function init() {
+window.addEventListener('online', () => setConn('online'));
+window.addEventListener('offline', () => setConn('offline', '브라우저 네트워크가 끊겼어요'));
+
+async function init() {
   // Detect context: inside Telegram (has initData) vs open browser
   isTelegram = !!(WebApp?.initData);
+
+  renderFavoriteCommands();
+  renderRecentCommands();
 
   // Browser mode: enforce token auth
   if (!isTelegram) {
@@ -2198,7 +3025,9 @@ window.cmdList = [
       await checkConn();
     }, 30000);
   } catch(e) { console.error('[OpenClaw TUI] init error:', e); }
-})();
+}
+
+init();
 </script>
 </body>
 </html>

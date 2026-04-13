@@ -31,10 +31,12 @@
       <string>default</string>
       <key>TELEGRAM_OWNER_ID</key>
       <string>46133618</string>
+      <key>MINIAPP_PUBLIC_ORIGIN</key>
+      <string>https://miniapp.techkwon.kr</string>
       <key>MINIAPP_INITDATA_MAX_AGE_SECONDS</key>
       <string>86400</string>
       <!-- Optional: set TELEGRAM_OWNER_ID to your numeric Telegram user id -->
-      <!-- Optional: set MINIAPP_PUBLIC_ORIGIN to your fixed HTTPS origin -->
+      <!-- MINIAPP_PUBLIC_ORIGIN should match the fixed HTTPS hostname used in Telegram -->
       <!-- Optional: set MINIAPP_AUTH_DEBUG=true only while diagnosing auth -->
       <key>SECRETS_FILE</key>
       <string>/Users/techkwon/.openclaw/secrets.store.json</string>

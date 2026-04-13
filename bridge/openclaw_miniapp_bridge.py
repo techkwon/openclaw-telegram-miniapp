@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import hashlib
 import hmac
 import json
@@ -8,11 +9,22 @@ import re
 import subprocess
 import sys
 import time
+import shlex
+import uuid
 from datetime import datetime, timezone
 from http.client import HTTPConnection, HTTPSConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, urlparse
+
+try:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    CRYPTOGRAPHY_AVAILABLE = True
+except Exception:
+    InvalidSignature = Exception
+    Ed25519PublicKey = None
+    CRYPTOGRAPHY_AVAILABLE = False
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = REPO_ROOT / 'index.html'
@@ -33,14 +45,30 @@ PUBLIC_ORIGIN = (os.environ.get('MINIAPP_PUBLIC_ORIGIN') or '').strip()
 AUTH_DEBUG = os.environ.get('MINIAPP_AUTH_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
+TELEGRAM_ED25519_PUBLIC_KEY_PROD = bytes.fromhex('e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d')
 
 COMMANDS = [
     {'name': 'help', 'description': '미니앱에서 지원하는 명령 보기', 'category': 'core'},
     {'name': 'commands', 'description': '이 브리지에서 지원하는 명령 목록 보기', 'category': 'core'},
     {'name': 'status', 'description': 'OpenClaw 실행 상태 요약 보기', 'category': 'runtime'},
+    {'name': 'runtime', 'description': '런타임 상태 JSON 보기', 'category': 'runtime'},
     {'name': 'model', 'description': '현재 기본 모델 정보 보기', 'category': 'runtime'},
+    {'name': 'usage', 'description': '현재 세션 토큰 사용량 보기', 'category': 'runtime'},
+    {'name': 'processes', 'description': '최근 세션/프로세스 보기', 'category': 'runtime'},
+    {'name': 'sessions list', 'description': '최근 세션 목록 보기', 'category': 'sessions'},
+    {'name': 'session status <target>', 'description': '특정 세션 상태 카드 보기', 'category': 'sessions'},
+    {'name': 'session summary <target>', 'description': '특정 세션 요약 보기', 'category': 'sessions'},
+    {'name': 'session history <target> [limit]', 'description': '특정 세션 최근 기록 보기', 'category': 'sessions'},
+    {'name': 'session send <target> <message>', 'description': '특정 세션에 메시지 보내기', 'category': 'sessions'},
+    {'name': 'session new <message>', 'description': '새 explicit 세션 생성', 'category': 'sessions'},
+    {'name': 'subagents list', 'description': '현재 세션의 subagent 목록 보기', 'category': 'agents'},
+    {'name': 'subagents kill <target>', 'description': 'subagent 종료', 'category': 'agents'},
+    {'name': 'subagents steer <target> <message>', 'description': 'subagent에 추가 지시 보내기', 'category': 'agents'},
     {'name': 'cron list', 'description': '크론 작업 목록 보기', 'category': 'cron'},
     {'name': 'cron run <id>', 'description': '크론 작업을 즉시 실행', 'category': 'cron'},
+    {'name': 'cron pause <id>', 'description': '크론 작업 일시중지', 'category': 'cron'},
+    {'name': 'cron resume <id>', 'description': '크론 작업 재개', 'category': 'cron'},
+    {'name': 'cron show <id>', 'description': '크론 작업 상세 보기', 'category': 'cron'},
 ]
 
 
@@ -172,29 +200,6 @@ def get_processes(status=None):
     }
 
 
-def get_subagents(status=None):
-    status = status or get_status_json()
-    recent = ((status.get('sessions') or {}).get('recent') or [])
-    items = []
-    for item in recent:
-        key = item.get('key') or ''
-        if ':subagent:' not in key:
-            continue
-        items.append({
-            'agent_id': item.get('agentId'),
-            'key': key,
-            'session_id': item.get('sessionId'),
-            'model': item.get('model'),
-            'context_tokens': item.get('contextTokens'),
-            'total_tokens': item.get('totalTokens'),
-            'percent_used': item.get('percentUsed'),
-            'age_ms': item.get('age'),
-            'kind': item.get('kind'),
-            'running': True,
-        })
-    return {'subagents': items}
-
-
 def get_runtime_status():
     status = get_status_json()
     gateway = status.get('gateway') or {}
@@ -234,6 +239,223 @@ def get_runtime_status():
             ],
         },
         'processes': get_processes(status).get('processes', []),
+    }
+
+
+def _cloudflared_launch_status():
+    try:
+        uid = os.getuid()
+        proc = subprocess.run(['launchctl', 'print', f'gui/{uid}/com.cloudflare.cloudflared'], capture_output=True, text=True)
+        text = (proc.stdout or proc.stderr or '')
+        running = proc.returncode == 0 and 'state = running' in text
+    except Exception:
+        running = False
+    try:
+        proc2 = subprocess.run(['pgrep', '-fl', 'cloudflared tunnel run --token'], capture_output=True, text=True)
+        matches = [line for line in (proc2.stdout or '').splitlines() if line.strip()]
+    except Exception:
+        matches = []
+    return {
+        'launch_agent_running': running,
+        'matching_processes': len(matches),
+    }
+
+
+def _external_public_probe():
+    if not PUBLIC_ORIGIN:
+        return {'configured': False, 'reachable': None, 'status': None, 'detail': 'public origin not configured'}
+    try:
+        parsed = urlparse(PUBLIC_ORIGIN)
+        conn_cls = HTTPSConnection if parsed.scheme == 'https' else HTTPConnection
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        path = (parsed.path.rstrip('/') or '') + '/health'
+        conn = conn_cls(parsed.hostname, port, timeout=8)
+        conn.request('GET', path, headers={'User-Agent': 'OpenClawMiniAppBridge/1.0'})
+        resp = conn.getresponse()
+        body = resp.read(160).decode('utf-8', errors='replace').strip()
+        reachable = resp.status < 400
+        return {
+            'configured': True,
+            'reachable': reachable,
+            'status': resp.status,
+            'detail': body[:160],
+        }
+    except Exception as e:
+        return {
+            'configured': True,
+            'reachable': False,
+            'status': None,
+            'detail': str(e),
+        }
+
+
+def get_system_diagnostics():
+    runtime = get_runtime_status()
+    return {
+        'bridge': {
+            'host': HOST,
+            'port': PORT,
+            'public_origin': PUBLIC_ORIGIN,
+            'public_origin_configured': bool(PUBLIC_ORIGIN),
+            'backend_base': BACKEND_BASE,
+        },
+        'auth': {
+            'telegram_owner_ids_configured': bool(TELEGRAM_OWNER_IDS),
+            'telegram_bot_token_configured': bool(TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKENS),
+            'shared_token_configured': bool(SHARED_TOKEN),
+            'ed25519_available': CRYPTOGRAPHY_AVAILABLE,
+            'initdata_max_age_seconds': INITDATA_MAX_AGE_SECONDS,
+        },
+        'gateway': runtime.get('gateway') or {},
+        'tasks': runtime.get('tasks') or {},
+        'sessions': {
+            'count': (runtime.get('sessions') or {}).get('count', 0),
+        },
+        'cloudflared': _cloudflared_launch_status(),
+        'external_probe': _external_public_probe(),
+    }
+
+
+def _tool_text_json(result, fallback_key=None):
+    details = (result.get('result') or {}).get('details')
+    if isinstance(details, dict) and details:
+        return details
+    content = (result.get('result') or {}).get('content') or []
+    for item in content:
+        if item.get('type') == 'text' and item.get('text'):
+            try:
+                return json.loads(item['text'])
+            except Exception:
+                pass
+    return {fallback_key: content} if fallback_key else {}
+
+
+def list_sessions(limit=20, active_minutes=None, message_limit=0):
+    args = {'limit': limit}
+    if active_minutes is not None:
+        args['activeMinutes'] = active_minutes
+    if message_limit:
+        args['messageLimit'] = message_limit
+    result = invoke_gateway_tool('sessions_list', args=args, message_channel=DEFAULT_CHANNEL)
+    return _tool_text_json(result, fallback_key='sessions')
+
+
+def resolve_session_target(target):
+    target = (target or '').strip()
+    if not target:
+        raise RuntimeError('session target is required')
+    if ':' in target:
+        sessions = list_sessions(limit=100).get('sessions') or []
+        for item in sessions:
+            if item.get('key') == target:
+                return item.get('sessionId') or target, item.get('key') or target
+        return target, target
+    return target, target
+
+
+def get_session_status_text(target):
+    session_id, session_key = resolve_session_target(target)
+    result = invoke_gateway_tool('session_status', args={'sessionKey': session_key}, message_channel=DEFAULT_CHANNEL)
+    details = (result.get('result') or {}).get('details') or {}
+    return details.get('statusText') or json.dumps(details, ensure_ascii=False, indent=2)
+
+
+def get_session_summary(target):
+    session_id, session_key = resolve_session_target(target)
+    sessions = list_sessions(limit=100).get('sessions') or []
+    found = None
+    for item in sessions:
+        if item.get('key') == session_key or item.get('sessionId') == session_id:
+            found = item
+            break
+    if not found:
+        return {
+            'sessionKey': session_key,
+            'sessionId': session_id,
+            'summary': '세션을 찾지 못했어요.',
+        }
+    parts = [
+        f"세션: {found.get('key') or session_key}",
+        f"상태: {found.get('status') or found.get('kind') or 'unknown'}",
+        f"모델: {found.get('model') or '—'}",
+    ]
+    if found.get('totalTokens') is not None:
+        parts.append(f"토큰: {found.get('totalTokens')} total")
+    if found.get('contextTokens') is not None:
+        parts.append(f"컨텍스트: {found.get('contextTokens')}")
+    if found.get('updatedAt'):
+        parts.append(f"업데이트: {now_iso_from_ms(found.get('updatedAt'))}")
+    child_sessions = found.get('childSessions') or []
+    if child_sessions:
+        parts.append(f"하위 세션: {len(child_sessions)}개")
+    return {
+        'sessionKey': found.get('key') or session_key,
+        'sessionId': found.get('sessionId') or session_id,
+        'model': found.get('model'),
+        'status': found.get('status') or found.get('kind'),
+        'totalTokens': found.get('totalTokens'),
+        'contextTokens': found.get('contextTokens'),
+        'updatedAt': found.get('updatedAt'),
+        'childSessions': child_sessions,
+        'summary': '\n'.join(parts),
+    }
+
+
+def get_session_history(target, limit=10, include_tools=False):
+    session_id, session_key = resolve_session_target(target)
+    result = invoke_gateway_tool(
+        'sessions_history',
+        args={'sessionKey': session_key, 'limit': limit, 'includeTools': include_tools},
+        message_channel=DEFAULT_CHANNEL,
+    )
+    return _tool_text_json(result, fallback_key='messages')
+
+
+def session_send(target, message, timeout_seconds=45):
+    session_id, session_key = resolve_session_target(target)
+    cmd = [
+        'openclaw', 'agent', '--session-id', session_id,
+        '--message', message,
+        '--json', '--timeout', str(timeout_seconds),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or 'session send failed').strip())
+    data = json.loads((proc.stdout or '{}').strip() or '{}')
+    payloads = (((data.get('result') or {}).get('payloads') or []))
+    texts = [p.get('text') for p in payloads if p.get('text')]
+    return {
+        'ok': data.get('status') == 'ok',
+        'session_id': (((data.get('result') or {}).get('meta') or {}).get('agentMeta') or {}).get('sessionId') or session_id,
+        'session_key': ((((data.get('result') or {}).get('meta') or {}).get('systemPromptReport') or {}).get('sessionKey')) or session_key,
+        'run_id': data.get('runId'),
+        'reply': '\n\n'.join(texts).strip(),
+        'raw': data,
+    }
+
+
+def session_new(message, timeout_seconds=45):
+    explicit_id = str(uuid.uuid4())
+    cmd = [
+        'openclaw', 'agent', '--session-id', explicit_id,
+        '--message', message,
+        '--json', '--timeout', str(timeout_seconds),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or 'session create failed').strip())
+    data = json.loads((proc.stdout or '{}').strip() or '{}')
+    meta = ((data.get('result') or {}).get('meta') or {})
+    payloads = ((data.get('result') or {}).get('payloads') or [])
+    texts = [p.get('text') for p in payloads if p.get('text')]
+    return {
+        'ok': data.get('status') == 'ok',
+        'requested_session_id': explicit_id,
+        'session_id': (meta.get('agentMeta') or {}).get('sessionId') or explicit_id,
+        'session_key': (meta.get('systemPromptReport') or {}).get('sessionKey') or explicit_id,
+        'run_id': data.get('runId'),
+        'reply': '\n\n'.join(texts).strip(),
+        'raw': data,
     }
 
 
@@ -375,20 +597,85 @@ def command_output(command, args):
     full = (command or '').strip()
     if args:
         full = f"{full} {args}".strip()
-    if full in ('/help', 'help'):
+    normalized = full.lstrip('/')
+
+    if normalized in ('help',):
         return '지원하는 브리지 명령:\n' + '\n'.join(f"- /{c['name']} — {c['description']}" for c in COMMANDS)
-    if full in ('/commands', 'commands'):
+    if normalized in ('commands',):
         return json.dumps(commands_payload(), ensure_ascii=False, indent=2)
-    if full in ('/status', 'status'):
+    if normalized in ('status',):
         return summarize_status(get_status_json())
-    if full in ('/model', 'model'):
+    if normalized in ('runtime', 'runtime status'):
+        return json.dumps(get_runtime_status(), ensure_ascii=False, indent=2)
+    if normalized in ('model',):
         return json.dumps(get_model_info(), ensure_ascii=False, indent=2)
-    if full in ('/cron list', 'cron list'):
+    if normalized in ('usage', 'session usage'):
+        return json.dumps(get_session_usage(), ensure_ascii=False, indent=2)
+    if normalized in ('processes', 'ps'):
+        return json.dumps(get_processes(), ensure_ascii=False, indent=2)
+    if normalized in ('sessions', 'sessions list'):
+        return json.dumps(list_sessions(limit=20), ensure_ascii=False, indent=2)
+    if normalized.startswith('session status '):
+        target = normalized.split(maxsplit=2)[-1]
+        return get_session_status_text(target)
+    if normalized.startswith('session summary '):
+        target = normalized.split(maxsplit=2)[-1]
+        summary = get_session_summary(target)
+        return summary.get('summary') or json.dumps(summary, ensure_ascii=False, indent=2)
+    if normalized.startswith('session history '):
+        rest = normalized[len('session history '):].strip()
+        limit = 10
+        parts = rest.rsplit(' ', 1)
+        if len(parts) == 2 and parts[1].isdigit():
+            target, limit = parts[0], int(parts[1])
+        else:
+            target = rest
+        return json.dumps(get_session_history(target, limit=limit, include_tools=False), ensure_ascii=False, indent=2)
+    if normalized.startswith('session send '):
+        parts = normalized.split(maxsplit=3)
+        if len(parts) < 4:
+            return '사용법: /session send <target> <message>'
+        _, _, target, message = parts
+        result = session_send(target, message)
+        reply = result.get('reply') or '(응답 없음)'
+        return f"세션에 메시지 보냈어요: {result.get('session_key') or target}\n\n{reply}"
+    if normalized.startswith('session new '):
+        message = normalized[len('session new '):].strip()
+        if not message:
+            return '사용법: /session new <message>'
+        result = session_new(message)
+        reply = result.get('reply') or '(응답 없음)'
+        return f"새 세션 생성: {result.get('session_key')}\n세션 ID: {result.get('session_id')}\n\n{reply}"
+    if normalized in ('cron', 'cron list'):
         return json.dumps(list_jobs(), ensure_ascii=False, indent=2)
-    if full.startswith('/cron run ') or full.startswith('cron run '):
-        job_id = full.split()[-1]
+    if normalized.startswith('cron run '):
+        job_id = normalized.split(maxsplit=2)[-1]
         cron_action(job_id, 'run')
         return f'크론 작업을 실행했어요: {job_id}'
+    if normalized.startswith('cron pause '):
+        job_id = normalized.split(maxsplit=2)[-1]
+        cron_action(job_id, 'pause')
+        return f'크론 작업을 일시중지했어요: {job_id}'
+    if normalized.startswith('cron resume '):
+        job_id = normalized.split(maxsplit=2)[-1]
+        cron_action(job_id, 'resume')
+        return f'크론 작업을 재개했어요: {job_id}'
+    if normalized.startswith('cron show '):
+        job_id = normalized.split(maxsplit=2)[-1]
+        return json.dumps(get_job(job_id), ensure_ascii=False, indent=2)
+    if normalized in ('subagents', 'subagents list'):
+        return json.dumps(get_subagents(), ensure_ascii=False, indent=2)
+    if normalized.startswith('subagents kill '):
+        target = normalized.split(maxsplit=2)[-1]
+        result = subagent_action({'action': 'kill', 'target': target})
+        return result.get('text') or json.dumps(result, ensure_ascii=False, indent=2)
+    if normalized.startswith('subagents steer '):
+        parts = normalized.split(maxsplit=3)
+        if len(parts) < 4:
+            return '사용법: /subagents steer <target> <message>'
+        _, _, target, message = parts
+        result = subagent_action({'action': 'steer', 'target': target, 'message': message})
+        return result.get('text') or json.dumps(result, ensure_ascii=False, indent=2)
     return f'OpenClaw 브리지에서 아직 지원하지 않는 명령입니다: {full}'
 
 
@@ -424,30 +711,73 @@ def _candidate_bot_tokens():
     return seen
 
 
+def _candidate_bot_ids():
+    seen = []
+    for token in _candidate_bot_tokens():
+        bot_id = (token.split(':', 1)[0] or '').strip()
+        if bot_id and bot_id not in seen:
+            seen.append(bot_id)
+    return seen
+
+
+def _validate_telegram_init_data_ed25519(data):
+    if not CRYPTOGRAPHY_AVAILABLE:
+        return False
+    signature = (data.get('signature') or '').strip()
+    if not signature:
+        return False
+    lines = []
+    for k, v in sorted(data.items()):
+        if k in {'hash', 'signature'}:
+            continue
+        lines.append(f'{k}={v}')
+    if not lines:
+        return False
+    try:
+        padding = '=' * (-len(signature) % 4)
+        sig_bytes = base64.urlsafe_b64decode(signature + padding)
+    except Exception:
+        return False
+    public_key = Ed25519PublicKey.from_public_bytes(TELEGRAM_ED25519_PUBLIC_KEY_PROD)
+    for bot_id in _candidate_bot_ids():
+        data_check_string = f'{bot_id}:WebAppData\n' + '\n'.join(lines)
+        try:
+            public_key.verify(sig_bytes, data_check_string.encode('utf-8'))
+            return True
+        except InvalidSignature:
+            continue
+        except Exception:
+            continue
+    return False
+
+
+def _validate_telegram_init_data_hmac(data):
+    their_hash = data.get('hash', '')
+    if not their_hash:
+        return False
+    body = {k: v for k, v in data.items() if k != 'hash'}
+    data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(body.items()))
+    for bot_token in _candidate_bot_tokens():
+        secret_key = hmac.new(b'WebAppData', bot_token.encode('utf-8'), hashlib.sha256).digest()
+        calc_hash = hmac.new(secret_key, data_check_string.encode('utf-8'), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(calc_hash, their_hash):
+            return True
+    return False
+
+
 def validate_telegram_init_data(init_data):
     if not init_data:
         return False
     try:
         pairs = parse_qsl(init_data, keep_blank_values=True, strict_parsing=False)
         data = dict(pairs)
-        their_hash = data.pop('hash', '')
-        if not their_hash:
-            return False
         auth_date = int(data.get('auth_date', '0'))
         now = int(time.time())
         if not auth_date or auth_date > now + 60:
             return False
         if INITDATA_MAX_AGE_SECONDS > 0 and now - auth_date > INITDATA_MAX_AGE_SECONDS:
             return False
-        data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(data.items()))
-        hash_ok = False
-        for bot_token in _candidate_bot_tokens():
-            secret_key = hmac.new(b'WebAppData', bot_token.encode('utf-8'), hashlib.sha256).digest()
-            calc_hash = hmac.new(secret_key, data_check_string.encode('utf-8'), hashlib.sha256).hexdigest()
-            if hmac.compare_digest(calc_hash, their_hash):
-                hash_ok = True
-                break
-        if not hash_ok:
+        if not (_validate_telegram_init_data_ed25519(data) or _validate_telegram_init_data_hmac(data)):
             return False
         if TELEGRAM_OWNER_IDS:
             user_raw = data.get('user', '')
@@ -488,6 +818,129 @@ def backend_conn():
     return conn_cls(parsed.hostname, port, timeout=120), parsed
 
 
+def backend_json(method, path, body=None, headers=None):
+    conn, _parsed = backend_conn()
+    payload = None
+    req_headers = dict(headers or {})
+    if body is not None:
+        payload = json.dumps(body, ensure_ascii=False).encode('utf-8')
+        req_headers['Content-Type'] = 'application/json'
+    if BACKEND_BEARER:
+        req_headers['Authorization'] = f'Bearer {BACKEND_BEARER}'
+    conn.request(method, path, body=payload, headers=req_headers)
+    resp = conn.getresponse()
+    data = resp.read()
+    ctype = resp.getheader('Content-Type', '')
+    if data and 'application/json' in ctype:
+        parsed = json.loads(data.decode('utf-8'))
+    elif data:
+        parsed = {'raw': data.decode('utf-8', errors='replace')}
+    else:
+        parsed = {}
+    if resp.status >= 400:
+        message = parsed.get('error', {}).get('message') if isinstance(parsed.get('error'), dict) else None
+        message = message or parsed.get('message') or parsed.get('error') or f'backend http {resp.status}'
+        raise RuntimeError(str(message))
+    return parsed
+
+
+def resolve_requester_session_key(session_id=None, status=None):
+    if not session_id:
+        return None
+    status = status or get_status_json()
+    recent = ((status.get('sessions') or {}).get('recent') or [])
+    for item in recent:
+        if item.get('sessionId') == session_id:
+            return item.get('key')
+    return None
+
+
+def invoke_gateway_tool(tool, args=None, action=None, session_key=None, message_channel=DEFAULT_CHANNEL):
+    body = {
+        'tool': tool,
+        'args': args or {},
+    }
+    if action:
+        body['action'] = action
+    if session_key:
+        body['sessionKey'] = session_key
+    headers = {}
+    if message_channel:
+        headers['x-openclaw-message-channel'] = message_channel
+    return backend_json('POST', '/tools/invoke', body=body, headers=headers)
+
+
+def _subagent_view(entry, active=False):
+    return {
+        'index': entry.get('index'),
+        'run_id': entry.get('runId'),
+        'key': entry.get('sessionKey'),
+        'session_id': entry.get('sessionId'),
+        'label': entry.get('label'),
+        'task': entry.get('task'),
+        'status': entry.get('status'),
+        'model': entry.get('model'),
+        'total_tokens': entry.get('totalTokens'),
+        'runtime': entry.get('runtime'),
+        'runtime_ms': entry.get('runtimeMs'),
+        'started_at': entry.get('startedAt'),
+        'ended_at': entry.get('endedAt'),
+        'pending_descendants': entry.get('pendingDescendants', 0),
+        'active': active,
+    }
+
+
+def get_subagents(session_id=None, recent_minutes=30, status=None):
+    status = status or get_status_json()
+    session_key = resolve_requester_session_key(session_id, status=status)
+    result = invoke_gateway_tool(
+        'subagents',
+        args={'action': 'list', 'recentMinutes': recent_minutes},
+        session_key=session_key,
+        message_channel=DEFAULT_CHANNEL,
+    )
+    details = (result.get('result') or {}).get('details') or {}
+    active = [_subagent_view(item, active=True) for item in details.get('active') or []]
+    recent = [_subagent_view(item, active=False) for item in details.get('recent') or []]
+    return {
+        'requester_session_key': details.get('requesterSessionKey') or session_key,
+        'caller_session_key': details.get('callerSessionKey'),
+        'caller_is_subagent': details.get('callerIsSubagent', False),
+        'total': details.get('total', len(active) + len(recent)),
+        'active': active,
+        'recent': recent,
+        'subagents': active + recent,
+        'text': details.get('text') or '',
+    }
+
+
+def subagent_action(body, session_id=None, status=None):
+    status = status or get_status_json()
+    session_key = resolve_requester_session_key(session_id, status=status)
+    action = (body.get('action') or 'list').strip()
+    args = {'action': action}
+    if body.get('target'):
+        args['target'] = body.get('target')
+    if body.get('message'):
+        args['message'] = body.get('message')
+    if body.get('recentMinutes'):
+        args['recentMinutes'] = body.get('recentMinutes')
+    result = invoke_gateway_tool('subagents', args=args, session_key=session_key, message_channel=DEFAULT_CHANNEL)
+    details = (result.get('result') or {}).get('details') or {}
+    ok_statuses = {'ok', 'accepted', 'done'}
+    response = {
+        'ok': details.get('status') in ok_statuses,
+        'action': details.get('action') or action,
+        'target': details.get('target'),
+        'requester_session_key': details.get('requesterSessionKey') or session_key,
+        'text': details.get('text') or '',
+        'details': details,
+    }
+    if action == 'list':
+        response.update(get_subagents(session_id=session_id, recent_minutes=body.get('recentMinutes') or 30, status=status))
+    return response
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -518,12 +971,16 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/runtime-status':
                 self.require_auth()
                 return json_response(self, 200, get_runtime_status())
+            if self.path == '/api/diagnostics':
+                self.require_auth()
+                return json_response(self, 200, get_system_diagnostics())
             if self.path == '/api/processes':
                 self.require_auth()
                 return json_response(self, 200, get_processes())
             if self.path == '/api/subagents':
                 self.require_auth()
-                return json_response(self, 200, get_subagents())
+                session_id = self.headers.get('x-openclaw-session-id')
+                return json_response(self, 200, get_subagents(session_id=session_id))
             if self.path.startswith('/api/session-usage'):
                 self.require_auth()
                 session_id = self.headers.get('x-openclaw-session-id')
@@ -549,6 +1006,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/command':
                 output = command_output(body.get('command'), body.get('args'))
                 return json_response(self, 200, {'output': output})
+            if self.path == '/api/subagents':
+                session_id = self.headers.get('x-openclaw-session-id')
+                return json_response(self, 200, subagent_action(body, session_id=session_id))
             if self.path == '/api/jobs':
                 created = create_job(body)
                 return json_response(self, 200, created)

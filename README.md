@@ -93,6 +93,30 @@ Telegram 안에서 OpenClaw를 조금 더 가볍고 빠르게 다루기 위한 M
 - 원본 크레딧과 라이선스 의무를 유지하기
 - 사용자 입장에서는 더 단순하고 실용적으로 보이게 만들기
 
+## 배포 준비 메모
+
+현재 로컬 브리지는 `127.0.0.1:8765` 에서 동작하도록 맞춰져 있고, 실배포 기본 도메인은 아래 기준으로 정리했습니다.
+
+- 권장 Mini App origin: `https://miniapp.techkwon.kr`
+- launchd 기본값: `MINIAPP_PUBLIC_ORIGIN=https://miniapp.techkwon.kr`
+- Cloudflare Tunnel 예시 파일: `tunnel/cloudflared-config.yml`
+
+권장 배포 순서:
+
+1. `cloudflared tunnel login`
+2. `cloudflared tunnel create openclaw-miniapp`
+3. `cloudflared tunnel route dns openclaw-miniapp miniapp.techkwon.kr`
+4. `~/.cloudflared/config.yml` 에 `tunnel/cloudflared-config.yml` 내용을 실제 tunnel UUID로 반영
+5. `cloudflared tunnel --config ~/.cloudflared/config.yml tunnel run openclaw-miniapp`
+6. Telegram Bot 설정에서 Mini App URL 또는 Menu Button URL을 `https://miniapp.techkwon.kr` 로 교체
+
+주의:
+
+- Telegram Mini App 엔트리포인트는 `trycloudflare.com` 같은 임시 URL보다 고정 hostname이 훨씬 안전합니다.
+- 실제 Telegram 쪽 URL 교체는 Cloudflare named tunnel이 정상 응답하는 것을 먼저 확인한 뒤 진행하는 것이 좋습니다.
+- launchd plist를 수정한 뒤 환경 변수를 확실히 반영하려면 단순 kickstart보다 `bootout -> bootstrap` 재적용이 더 안전할 수 있습니다.
+- 운영 중 장애 분리 순서는 [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)를 바로 참고하면 됩니다.
+
 ## 앞으로 다듬을 부분
 
 아직 더 좋아질 수 있는 부분도 분명히 있습니다.

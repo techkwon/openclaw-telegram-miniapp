@@ -1,18 +1,19 @@
-# Cloudflare Tunnel Configuration
+# Cloudflare Tunnel Configuration for OpenClaw Telegram Mini App
 # Install:  cloudflared tunnel login
-# Create:   cloudflared tunnel create hermes
-# Route:    cloudflared tunnel route dns hermes YOUR_DOMAIN
-# Run:      cloudflared tunnel run hermes
+# Create:   cloudflared tunnel create openclaw-miniapp
+# Route:    cloudflared tunnel route dns openclaw-miniapp miniapp.techkwon.kr
+# Run:      cloudflared tunnel --config ~/.cloudflared/config.yml tunnel run openclaw-miniapp
 #
 # Config location: ~/.cloudflared/config.yml
+# Replace YOUR_TUNNEL_ID with the actual tunnel UUID created by cloudflared.
 
 tunnel: YOUR_TUNNEL_ID
-credentials-file: /home/YOU/.cloudflared/YOUR_TUNNEL_ID.json
+credentials-file: /Users/techkwon/.cloudflared/YOUR_TUNNEL_ID.json
 
 ingress:
-  # Hermes API + Telegram Mini App
-  - hostname: YOUR_DOMAIN
-    service: http://localhost:8642
+  # OpenClaw mini app bridge served locally on the Mac mini
+  - hostname: miniapp.techkwon.kr
+    service: http://127.0.0.1:8765
 
   # Catch-all
   - service: http_status:404
