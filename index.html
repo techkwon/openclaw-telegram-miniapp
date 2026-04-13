@@ -734,6 +734,9 @@ body {
   <div class="tab" data-panel="agents" onclick="switchTab('agents')">
     <span class="tab-icon">&#129302;</span>에이전트
   </div>
+  <div class="tab" data-panel="sessions" onclick="switchTab('sessions')">
+    <span class="tab-icon">&#128221;</span>세션
+  </div>
   <div class="tab" data-panel="cron" onclick="switchTab('cron')">
     <span class="tab-icon">&#9201;</span>크론
   </div>
@@ -772,6 +775,11 @@ body {
 <!-- AGENTS -->
 <div id="agents-panel" class="panel">
   <div class="panel-scroll" id="agents-content" style="padding-top:12px"></div>
+</div>
+
+<!-- SESSIONS -->
+<div id="sessions-panel" class="panel">
+  <div class="panel-scroll" id="sessions-content" style="padding-top:12px"></div>
 </div>
 
 <!-- CRON -->
@@ -1143,6 +1151,7 @@ function switchTab(t) {
   document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === t + '-panel'));
   if (t === 'status') loadStatus();
   if (t === 'agents') loadAgents();
+  if (t === 'sessions') loadSessions();
   if (t === 'cron') loadCron();
   WebApp?.HapticFeedback?.impactOccurred('light');
   closeMsgPopup();
@@ -1854,6 +1863,51 @@ async function loadAgents() {
     content.innerHTML = html;
   } catch (e) {
     content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}<br><br>에이전트 패널은 OpenClaw runtime 정보를 기반으로 표시합니다.</div></div>`;
+  }
+}
+
+// ─── SESSIONS ─────────────────────────────────────────────────────────────
+async function loadSessions() {
+  const content = document.getElementById('sessions-content');
+  content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--hint);font-size:12px">세션 정보를 불러오는 중...</div>';
+  try {
+    const runtime = await api('/api/runtime-status');
+    const sessions = runtime?.sessions?.recent || [];
+    let html = `
+      <div class="section">
+        <div class="section-header"><h2>세션 개요</h2></div>
+        <div class="item"><div class="item-label">전체 세션</div><div class="item-value">${runtime?.sessions?.count ?? 0}</div></div>
+        <div class="item"><div class="item-label">최근 표시</div><div class="item-value">${sessions.length}</div></div>
+      </div>
+    `;
+    html += `
+      <div class="section">
+        <div class="section-header"><h2>최근 세션</h2></div>
+        ${sessions.length ? sessions.map(s => `
+          <div class="item"><div class="item-label">${esc(s.agent_id || 'agent')}</div><div class="item-value">${esc(s.model || '—')} · ${s.percent_used != null ? s.percent_used + '%' : 'ctx —'}</div></div>
+          <div class="item"><div class="item-label">종류</div><div class="item-value">${esc(s.kind || '—')}</div></div>
+          <div class="item"><div class="item-label">세션 ID</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(s.session_id || '—')}</div></div>
+          <div class="item"><div class="item-label">키</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(s.key || '—')}</div></div>
+          <div class="item"><div class="item-label">토큰</div><div class="item-value">${s.total_tokens ? _fmtTokens(s.total_tokens) : '—'}</div></div>
+          <div class="item"><div class="item-label">컨텍스트</div><div class="item-value">${s.context_tokens ? _fmtTokens(s.context_tokens) : '—'}</div></div>
+          <div style="height:1px;background:var(--border);margin:8px 0"></div>
+        `).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
+      </div>
+    `;
+    html += `
+      <div class="section">
+        <div class="section-header"><h2>빠른 실행</h2></div>
+        <div class="quick-grid">
+          <button class="qbtn reload" onclick="loadSessions()">새로고침</button>
+          <button class="qbtn" onclick="switchTab('agents')">에이전트</button>
+          <button class="qbtn" onclick="switchTab('status')">런타임</button>
+          <button class="qbtn" onclick="quickCmd('/status')">상태 요약</button>
+        </div>
+      </div>
+    `;
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}</div></div>`;
   }
 }
 
