@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- OpenClaw 세션/서브에이전트 제어 확장
+  - `/api/runtime-status`, `/api/subagents`, `/api/diagnostics`
+  - 세션 목록/상태/요약/히스토리/전송/새 세션 흐름 보강
+- Mini App Status 탭 운영 진단 강화
+  - Public origin vs 현재 origin 표시
+  - Gateway 연결 상태, Cloudflared 서비스 상태, tunnel 프로세스 수 표시
+  - 외부 health probe 및 외부 응답 세부 표시
+  - 마지막 오류 상태 저장 및 `오류 지우기` 액션 추가
+  - Cloudflare 1010/1033 및 외부 접속 실패용 상단 경고 배너 추가
+- 운영 문서 추가
+  - `OPERATIONS_CHECKLIST.md`
+  - `NEXT_STEPS.md`
+- 배포 문서 보강
+  - README에 `miniapp.techkwon.kr` 기준 named tunnel / launchd 운영 메모 추가
+
+### Fixed
+- Telegram Mini App `initData` 검증을 Ed25519 우선 + HMAC fallback 구조로 정리
+- Mini App 프런트 부트 문제 수정
+  - 초기 이벤트 연결/`init()` 호출 누락 정리
+- 사용자 오류 메시지 분류 강화
+  - 401, 403, Cloudflare 1010, Cloudflare 1033, 5xx 구분 표시
+- tunnel 운영 중복 문제 진단 가능하도록 상태 가시성 보강
+
 ## [1.0.2] — 2026-04-12
 
 ### Added
