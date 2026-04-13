@@ -27,8 +27,10 @@
       <string>8765</string>
       <key>OPENCLAW_BASE_URL</key>
       <string>http://127.0.0.1:18789</string>
-      <key>MINIAPP_SHARED_TOKEN</key>
-      <string>dev-miniapp-token</string>
+      <key>TELEGRAM_ACCOUNT_NAME</key>
+      <string>default</string>
+      <key>MINIAPP_INITDATA_MAX_AGE_SECONDS</key>
+      <string>86400</string>
       <key>SECRETS_FILE</key>
       <string>/Users/techkwon/.openclaw/secrets.store.json</string>
     </dict>

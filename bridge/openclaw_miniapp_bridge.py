@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
+import hashlib
+import hmac
 import json
 import mimetypes
 import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from http.client import HTTPConnection, HTTPSConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = REPO_ROOT / 'index.html'
@@ -20,6 +23,9 @@ PORT = int(os.environ.get('MINIAPP_PORT', '8765'))
 BACKEND_BASE = os.environ.get('OPENCLAW_BASE_URL', 'http://127.0.0.1:18789')
 SHARED_TOKEN = os.environ.get('MINIAPP_SHARED_TOKEN') or os.environ.get('OPENCLAW_GATEWAY_TOKEN') or os.environ.get('OPENCLAW_GATEWAY_PASSWORD')
 BACKEND_BEARER = os.environ.get('OPENCLAW_GATEWAY_TOKEN') or os.environ.get('OPENCLAW_GATEWAY_PASSWORD') or ''
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+INITDATA_MAX_AGE_SECONDS = int(os.environ.get('MINIAPP_INITDATA_MAX_AGE_SECONDS', '86400'))
+PUBLIC_ORIGIN = (os.environ.get('MINIAPP_PUBLIC_ORIGIN') or '').strip()
 DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
 
@@ -36,6 +42,7 @@ COMMANDS = [
 def json_response(handler, status, payload):
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     handler.send_response(status)
+    apply_cors(handler)
     handler.send_header('Content-Type', 'application/json; charset=utf-8')
     handler.send_header('Content-Length', str(len(body)))
     handler.send_header('Cache-Control', 'no-store')
@@ -46,6 +53,7 @@ def json_response(handler, status, payload):
 def text_response(handler, status, text):
     body = text.encode('utf-8')
     handler.send_response(status)
+    apply_cors(handler)
     handler.send_header('Content-Type', 'text/plain; charset=utf-8')
     handler.send_header('Content-Length', str(len(body)))
     handler.end_headers()
@@ -287,12 +295,59 @@ def command_output(command, args):
     return f'OpenClaw 브리지에서 아직 지원하지 않는 명령입니다: {full}'
 
 
+def _allowed_origins(handler):
+    origins = {
+        f'http://127.0.0.1:{PORT}',
+        f'http://localhost:{PORT}',
+    }
+    if PUBLIC_ORIGIN:
+        origins.add(PUBLIC_ORIGIN)
+    host = (handler.headers.get('Host') or '').strip()
+    if host:
+        origins.add(f'https://{host}')
+        origins.add(f'http://{host}')
+    return origins
+
+
+def apply_cors(handler):
+    origin = (handler.headers.get('Origin') or '').strip()
+    if origin and origin in _allowed_origins(handler):
+        handler.send_header('Access-Control-Allow-Origin', origin)
+        handler.send_header('Vary', 'Origin')
+        handler.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Telegram-Init-Data, x-openclaw-session-id, x-openclaw-message-channel')
+        handler.send_header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
+
+
+def validate_telegram_init_data(init_data):
+    if not init_data or not TELEGRAM_BOT_TOKEN:
+        return False
+    try:
+        pairs = parse_qsl(init_data, keep_blank_values=True, strict_parsing=False)
+        data = dict(pairs)
+        their_hash = data.pop('hash', '')
+        data.pop('signature', None)
+        if not their_hash:
+            return False
+        auth_date = int(data.get('auth_date', '0'))
+        now = int(time.time())
+        if not auth_date or auth_date > now + 60:
+            return False
+        if INITDATA_MAX_AGE_SECONDS > 0 and now - auth_date > INITDATA_MAX_AGE_SECONDS:
+            return False
+        data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(data.items()))
+        secret_key = hmac.new(b'WebAppData', TELEGRAM_BOT_TOKEN.encode('utf-8'), hashlib.sha256).digest()
+        calc_hash = hmac.new(secret_key, data_check_string.encode('utf-8'), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(calc_hash, their_hash)
+    except Exception:
+        return False
+
+
 def auth_ok(handler):
     tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
     if tg_init:
-        return True
+        return validate_telegram_init_data(tg_init)
     if not SHARED_TOKEN:
-        return True
+        return False
     auth = handler.headers.get('Authorization', '')
     if auth.startswith('Bearer ') and auth.removeprefix('Bearer ').strip() == SHARED_TOKEN:
         return True
@@ -311,10 +366,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Telegram-Init-Data, x-openclaw-session-id, x-openclaw-message-channel')
-        self.send_header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
+        apply_cors(self)
         self.end_headers()
+
+    def handle_exception(self, error):
+        if isinstance(error, RuntimeError) and str(error) == 'Unauthorized':
+            return json_response(self, 401, {'error': {'message': 'Unauthorized'}})
+        return json_response(self, 500, {'error': {'message': str(error)}})
 
     def do_GET(self):
         try:
@@ -343,7 +401,7 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, get_job(job_id))
             return text_response(self, 404, 'not found')
         except Exception as e:
-            return json_response(self, 500, {'error': {'message': str(e)}})
+            return self.handle_exception(e)
 
     def do_POST(self):
         try:
@@ -369,7 +427,7 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, cron_action(job_id, 'resume'))
             return text_response(self, 404, 'not found')
         except Exception as e:
-            return json_response(self, 500, {'error': {'message': str(e)}})
+            return self.handle_exception(e)
 
     def do_PATCH(self):
         try:
@@ -380,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, patch_job(job_id, body))
             return text_response(self, 404, 'not found')
         except Exception as e:
-            return json_response(self, 500, {'error': {'message': str(e)}})
+            return self.handle_exception(e)
 
     def do_DELETE(self):
         try:
@@ -390,7 +448,7 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, delete_job(job_id))
             return text_response(self, 404, 'not found')
         except Exception as e:
-            return json_response(self, 500, {'error': {'message': str(e)}})
+            return self.handle_exception(e)
 
     def require_auth(self):
         if not auth_ok(self):
@@ -414,6 +472,7 @@ class Handler(BaseHTTPRequestHandler):
         data = path.read_bytes()
         ctype = mimetypes.guess_type(str(path))[0] or 'text/html'
         self.send_response(200)
+        apply_cors(self)
         self.send_header('Content-Type', f'{ctype}; charset=utf-8')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
@@ -435,6 +494,7 @@ class Handler(BaseHTTPRequestHandler):
         resp = conn.getresponse()
         data = resp.read()
         self.send_response(resp.status)
+        apply_cors(self)
         self.send_header('Content-Type', resp.getheader('Content-Type', 'application/json'))
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
@@ -462,6 +522,7 @@ class Handler(BaseHTTPRequestHandler):
             }
             return json_response(self, 404, data)
         self.send_response(resp.status)
+        apply_cors(self)
         self.send_header('Content-Type', resp.getheader('Content-Type', 'text/event-stream'))
         if resp.getheader('x-openclaw-session-id'):
             self.send_header('x-openclaw-session-id', resp.getheader('x-openclaw-session-id'))

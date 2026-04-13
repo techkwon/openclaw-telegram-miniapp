@@ -9,8 +9,10 @@ ExecStart=/usr/bin/env python3 %h/openclaw-telegram-miniapp/bridge/openclaw_mini
 Environment="MINIAPP_HOST=127.0.0.1"
 Environment="MINIAPP_PORT=8765"
 Environment="OPENCLAW_BASE_URL=http://127.0.0.1:18789"
-Environment="MINIAPP_SHARED_TOKEN=YOUR_MINIAPP_SHARED_TOKEN"
-Environment="OPENCLAW_GATEWAY_TOKEN=YOUR_GATEWAY_TOKEN"
+Environment="TELEGRAM_ACCOUNT_NAME=default"
+Environment="MINIAPP_INITDATA_MAX_AGE_SECONDS=86400"
+# Optional: set MINIAPP_PUBLIC_ORIGIN to your fixed HTTPS origin for stricter CORS.
+# Optional: set MINIAPP_SHARED_TOKEN only if you want a separate browser fallback token.
 Restart=on-failure
 RestartSec=5
 
