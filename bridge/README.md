@@ -31,6 +31,7 @@ python3 bridge/openclaw_miniapp_bridge.py
 - `MINIAPP_PUBLIC_ORIGIN=https://your-domain.example`
 - `TELEGRAM_OWNER_ID=<your numeric telegram user id>` 또는 `TELEGRAM_OWNER_IDS=...`
 - `MINIAPP_AUTH_DEBUG=true` 는 문제 추적 시에만 임시 사용
+- 현재 로컬 launchd 예시는 owner 제한을 적용해 둘 수 있음
 
 주의:
 - OpenClaw chat 프록시는 `gateway.http.endpoints.chatCompletions.enabled=true` 가 필요함
