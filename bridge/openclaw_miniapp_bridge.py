@@ -145,6 +145,98 @@ def get_session_usage(session_id=None):
     }
 
 
+def get_processes(status=None):
+    status = status or get_status_json()
+    recent = ((status.get('sessions') or {}).get('recent') or [])
+    tasks = (status.get('tasks') or {})
+    processes = []
+    for item in recent[:8]:
+        processes.append({
+            'name': item.get('agentId') or item.get('key') or 'session',
+            'pid': item.get('sessionId'),
+            'running': True,
+            'cpu': None,
+            'mem': None,
+            'model': item.get('model'),
+            'kind': item.get('kind'),
+            'age_ms': item.get('age'),
+            'tokens': item.get('totalTokens'),
+        })
+    return {
+        'processes': processes,
+        'summary': {
+            'active_tasks': tasks.get('active', 0),
+            'failures': tasks.get('failures', 0),
+            'session_count': (status.get('sessions') or {}).get('count', 0),
+        }
+    }
+
+
+def get_subagents(status=None):
+    status = status or get_status_json()
+    recent = ((status.get('sessions') or {}).get('recent') or [])
+    items = []
+    for item in recent:
+        key = item.get('key') or ''
+        if ':subagent:' not in key:
+            continue
+        items.append({
+            'agent_id': item.get('agentId'),
+            'key': key,
+            'session_id': item.get('sessionId'),
+            'model': item.get('model'),
+            'context_tokens': item.get('contextTokens'),
+            'total_tokens': item.get('totalTokens'),
+            'percent_used': item.get('percentUsed'),
+            'age_ms': item.get('age'),
+            'kind': item.get('kind'),
+            'running': True,
+        })
+    return {'subagents': items}
+
+
+def get_runtime_status():
+    status = get_status_json()
+    gateway = status.get('gateway') or {}
+    service = status.get('gatewayService') or {}
+    tasks = status.get('tasks') or {}
+    sessions = status.get('sessions') or {}
+    heartbeat = status.get('heartbeat') or {}
+    recent = sessions.get('recent') or []
+    return {
+        'runtime_version': status.get('runtimeVersion'),
+        'gateway': {
+            'reachable': gateway.get('reachable'),
+            'url': gateway.get('url'),
+            'service': service.get('runtimeShort') or service.get('status') or 'unknown',
+        },
+        'tasks': tasks,
+        'heartbeat': {
+            'default_agent_id': heartbeat.get('defaultAgentId'),
+            'agents': heartbeat.get('agents') or [],
+        },
+        'channels': status.get('channelSummary') or [],
+        'sessions': {
+            'count': sessions.get('count', 0),
+            'recent': [
+                {
+                    'agent_id': item.get('agentId'),
+                    'kind': item.get('kind'),
+                    'session_id': item.get('sessionId'),
+                    'model': item.get('model'),
+                    'context_tokens': item.get('contextTokens'),
+                    'total_tokens': item.get('totalTokens'),
+                    'percent_used': item.get('percentUsed'),
+                    'age_ms': item.get('age'),
+                    'key': item.get('key'),
+                }
+                for item in recent[:8]
+            ],
+        },
+        'processes': get_processes(status).get('processes', []),
+    }
+
+
 def schedule_display(job):
     sched = job.get('schedule') or {}
     kind = sched.get('kind')
@@ -423,6 +515,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/model-info':
                 self.require_auth()
                 return json_response(self, 200, get_model_info())
+            if self.path == '/api/runtime-status':
+                self.require_auth()
+                return json_response(self, 200, get_runtime_status())
+            if self.path == '/api/processes':
+                self.require_auth()
+                return json_response(self, 200, get_processes())
+            if self.path == '/api/subagents':
+                self.require_auth()
+                return json_response(self, 200, get_subagents())
             if self.path.startswith('/api/session-usage'):
                 self.require_auth()
                 session_id = self.headers.get('x-openclaw-session-id')
