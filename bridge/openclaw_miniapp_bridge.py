@@ -24,8 +24,13 @@ BACKEND_BASE = os.environ.get('OPENCLAW_BASE_URL', 'http://127.0.0.1:18789')
 SHARED_TOKEN = os.environ.get('MINIAPP_SHARED_TOKEN') or os.environ.get('OPENCLAW_GATEWAY_TOKEN') or os.environ.get('OPENCLAW_GATEWAY_PASSWORD')
 BACKEND_BEARER = os.environ.get('OPENCLAW_GATEWAY_TOKEN') or os.environ.get('OPENCLAW_GATEWAY_PASSWORD') or ''
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_TOKENS = [t for t in (os.environ.get('TELEGRAM_BOT_TOKENS', '').splitlines()) if t.strip()]
+TELEGRAM_OWNER_IDS = {
+    s.strip() for s in (os.environ.get('TELEGRAM_OWNER_ID', '') + ',' + os.environ.get('TELEGRAM_OWNER_IDS', '')).split(',') if s.strip()
+}
 INITDATA_MAX_AGE_SECONDS = int(os.environ.get('MINIAPP_INITDATA_MAX_AGE_SECONDS', '86400'))
 PUBLIC_ORIGIN = (os.environ.get('MINIAPP_PUBLIC_ORIGIN') or '').strip()
+AUTH_DEBUG = os.environ.get('MINIAPP_AUTH_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
 
@@ -318,14 +323,22 @@ def apply_cors(handler):
         handler.send_header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
 
 
+def _candidate_bot_tokens():
+    seen = []
+    for token in [TELEGRAM_BOT_TOKEN, *TELEGRAM_BOT_TOKENS]:
+        token = (token or '').strip()
+        if token and token not in seen:
+            seen.append(token)
+    return seen
+
+
 def validate_telegram_init_data(init_data):
-    if not init_data or not TELEGRAM_BOT_TOKEN:
+    if not init_data:
         return False
     try:
         pairs = parse_qsl(init_data, keep_blank_values=True, strict_parsing=False)
         data = dict(pairs)
         their_hash = data.pop('hash', '')
-        data.pop('signature', None)
         if not their_hash:
             return False
         auth_date = int(data.get('auth_date', '0'))
@@ -335,22 +348,44 @@ def validate_telegram_init_data(init_data):
         if INITDATA_MAX_AGE_SECONDS > 0 and now - auth_date > INITDATA_MAX_AGE_SECONDS:
             return False
         data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(data.items()))
-        secret_key = hmac.new(b'WebAppData', TELEGRAM_BOT_TOKEN.encode('utf-8'), hashlib.sha256).digest()
-        calc_hash = hmac.new(secret_key, data_check_string.encode('utf-8'), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(calc_hash, their_hash)
+        hash_ok = False
+        for bot_token in _candidate_bot_tokens():
+            secret_key = hmac.new(b'WebAppData', bot_token.encode('utf-8'), hashlib.sha256).digest()
+            calc_hash = hmac.new(secret_key, data_check_string.encode('utf-8'), hashlib.sha256).hexdigest()
+            if hmac.compare_digest(calc_hash, their_hash):
+                hash_ok = True
+                break
+        if not hash_ok:
+            return False
+        if TELEGRAM_OWNER_IDS:
+            user_raw = data.get('user', '')
+            if not user_raw:
+                return False
+            user = json.loads(user_raw)
+            user_id = str(user.get('id', '')).strip()
+            if not user_id or user_id not in TELEGRAM_OWNER_IDS:
+                return False
+        return True
     except Exception:
         return False
 
 
 def auth_ok(handler):
     tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
-    if tg_init:
-        return validate_telegram_init_data(tg_init)
-    if not SHARED_TOKEN:
-        return False
     auth = handler.headers.get('Authorization', '')
+    if tg_init:
+        ok = validate_telegram_init_data(tg_init)
+        if not ok and AUTH_DEBUG:
+            print(f"auth reject: invalid telegram initData origin={(handler.headers.get('Origin') or '')!r} has_bearer={auth.startswith('Bearer ')} init_len={len(tg_init)} ua={(handler.headers.get('User-Agent') or '')[:120]!r}", file=sys.stderr)
+        return ok
+    if not SHARED_TOKEN:
+        if AUTH_DEBUG:
+            print(f"auth reject: no telegram initData and no shared token origin={(handler.headers.get('Origin') or '')!r} has_bearer={auth.startswith('Bearer ')} ua={(handler.headers.get('User-Agent') or '')[:120]!r}", file=sys.stderr)
+        return False
     if auth.startswith('Bearer ') and auth.removeprefix('Bearer ').strip() == SHARED_TOKEN:
         return True
+    if AUTH_DEBUG:
+        print(f"auth reject: bearer mismatch or missing origin={(handler.headers.get('Origin') or '')!r} has_bearer={auth.startswith('Bearer ')} ua={(handler.headers.get('User-Agent') or '')[:120]!r}", file=sys.stderr)
     return False
 
 

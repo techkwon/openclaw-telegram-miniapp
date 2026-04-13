@@ -31,6 +31,9 @@
       <string>default</string>
       <key>MINIAPP_INITDATA_MAX_AGE_SECONDS</key>
       <string>86400</string>
+      <!-- Optional: set TELEGRAM_OWNER_ID to your numeric Telegram user id -->
+      <!-- Optional: set MINIAPP_PUBLIC_ORIGIN to your fixed HTTPS origin -->
+      <!-- Optional: set MINIAPP_AUTH_DEBUG=true only while diagnosing auth -->
       <key>SECRETS_FILE</key>
       <string>/Users/techkwon/.openclaw/secrets.store.json</string>
     </dict>
