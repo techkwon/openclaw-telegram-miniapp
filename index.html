@@ -1256,6 +1256,18 @@ function refreshTelegramChrome() {
   if (typeof WebApp.setHeaderColor === 'function') {
     try { WebApp.setHeaderColor('secondary_bg_color'); } catch (_) {}
   }
+  if (WebApp.SettingsButton) {
+    try {
+      WebApp.SettingsButton.show();
+      if (typeof WebApp.SettingsButton.offClick === 'function' && window.__openclawSettingsHandler) {
+        WebApp.SettingsButton.offClick(window.__openclawSettingsHandler);
+      }
+      window.__openclawSettingsHandler = () => { handleSettingsButton(); };
+      if (typeof WebApp.SettingsButton.onClick === 'function') {
+        WebApp.SettingsButton.onClick(window.__openclawSettingsHandler);
+      }
+    } catch (_) {}
+  }
 }
 
 // ─── KEYBOARD / VIEWPORT HANDLING ──────────────────────────────────────────
@@ -1320,6 +1332,7 @@ let lastErrorState = null;
 let terminalSummary = null;
 let actionBusy = false;
 let currentMainButtonHandler = null;
+let biometricReady = false;
 let runCatTimer = null;
 let runCatStep = 0;
 let runCatMode = 'idle';
@@ -2341,6 +2354,10 @@ async function runRecoveryAction(action, label) {
   if (actionBusy) return;
   const confirmed = window.confirm(`${label}을(를) 실행할까요? 서비스가 잠깐 끊길 수 있어요.`);
   if (!confirmed) return;
+  if (action === 'restart_gateway') {
+    const allowed = await requireBiometricForGatewayRestart();
+    if (!allowed) return;
+  }
   actionBusy = true;
   try {
     if (WebApp?.enableClosingConfirmation) WebApp.enableClosingConfirmation();
@@ -2688,6 +2705,14 @@ function setStatusHelpOpen(open) {
   try { localStorage.setItem('openclaw_status_help', open ? '1' : '0'); } catch (_) {}
 }
 
+function getFullscreenPreferred() {
+  try { return localStorage.getItem('openclaw_pref_fullscreen') === '1'; } catch (_) { return false; }
+}
+
+function setFullscreenPreferred(open) {
+  try { localStorage.setItem('openclaw_pref_fullscreen', open ? '1' : '0'); } catch (_) {}
+}
+
 function toggleStatusHelp() {
   const content = document.getElementById('status-content');
   const btn = document.getElementById('status-help-toggle');
@@ -2698,6 +2723,86 @@ function toggleStatusHelp() {
   btn.setAttribute('aria-label', next ? '설명 숨기기' : '설명 보기');
   btn.setAttribute('title', next ? '설명 숨기기' : '설명 보기');
   setStatusHelpOpen(next);
+}
+
+async function toggleFullscreenPreference() {
+  const next = !getFullscreenPreferred();
+  setFullscreenPreferred(next);
+  if (next && WebApp?.requestFullscreen) {
+    try {
+      await WebApp.requestFullscreen();
+      toast('전체화면을 요청했어요', 1600, true);
+    } catch (_) {
+      toast('전체화면 요청 실패', 1600, false);
+    }
+  } else if (!next && WebApp?.exitFullscreen) {
+    try {
+      await WebApp.exitFullscreen();
+      toast('전체화면을 해제했어요', 1600, true);
+    } catch (_) {
+      toast('전체화면 해제 실패', 1600, false);
+    }
+  } else {
+    toast(next ? '전체화면 선호를 켰어요' : '전체화면 선호를 껐어요', 1600, true);
+  }
+}
+
+async function handleSettingsButton() {
+  if (activeTab !== 'status') {
+    switchTab('status');
+    return;
+  }
+  const action = window.prompt('설정: help / fullscreen', getStatusHelpOpen() ? 'help' : 'fullscreen');
+  if (!action) return;
+  const normalized = action.trim().toLowerCase();
+  if (normalized === 'help') {
+    toggleStatusHelp();
+    toast(getStatusHelpOpen() ? '설명 모드를 켰어요' : '설명 모드를 껐어요', 1400, true);
+    return;
+  }
+  if (normalized === 'fullscreen') {
+    await toggleFullscreenPreference();
+    return;
+  }
+  toast('help 또는 fullscreen 을 입력해 주세요', 1800, false);
+}
+
+async function ensureBiometricReady() {
+  if (!WebApp?.BiometricManager) return false;
+  const bio = WebApp.BiometricManager;
+  if (!biometricReady) {
+    if (typeof bio.init === 'function') {
+      try {
+        await bio.init();
+      } catch (_) {}
+    }
+    biometricReady = true;
+  }
+  if (bio.isAccessRequested === false && typeof bio.requestAccess === 'function') {
+    try {
+      await bio.requestAccess({ reason: '게이트웨이 재시작 보호' });
+    } catch (_) {}
+  }
+  return !!bio.isBiometricAvailable;
+}
+
+async function requireBiometricForGatewayRestart() {
+  const bio = WebApp?.BiometricManager;
+  if (!bio) return true;
+  const available = await ensureBiometricReady();
+  if (!available) {
+    toast('이 기기에서는 생체 인증을 사용할 수 없어요', 1800, false);
+    return window.confirm('생체 인증 없이 게이트웨이를 재시작할까요?');
+  }
+  if (typeof bio.authenticate !== 'function') return true;
+  try {
+    const ok = await bio.authenticate({ reason: '게이트웨이 재시작 승인' });
+    if (!ok) toast('생체 인증이 취소되었어요', 1800, false);
+    return !!ok;
+  } catch (_) {
+    toast('생체 인증 실패', 1800, false);
+    return false;
+  }
 }
 
 function renderAccordionSection(key, index, title, subtitle, body, defaultOpen = false) {
@@ -3736,6 +3841,9 @@ async function init() {
 
     // Pre-load commands now so drawer is instant on first open
     refreshTelegramChrome();
+    if (getFullscreenPreferred() && WebApp?.requestFullscreen) {
+      try { await WebApp.requestFullscreen(); } catch (_) {}
+    }
     loadCommands();
     loadModelInfo();
     startDurationTimer();
