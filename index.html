@@ -1254,10 +1254,24 @@ body {
     <div class="settings-modal-body">
       <div class="settings-option">
         <div class="settings-option-main">
-          <div class="settings-option-title">설명 모드</div>
-          <div class="settings-option-sub">상태 탭의 회색 안내와 버튼 설명을 한 번에 켜고 끕니다.</div>
+          <div class="settings-option-title">설명 기본값</div>
+          <div class="settings-option-sub">상태 탭의 회색 안내와 버튼 설명을 기본으로 켜둘지 정합니다.</div>
         </div>
         <button class="settings-option-btn" id="settings-help-btn" onclick="toggleStatusHelpFromSettings()">OFF</button>
+      </div>
+      <div class="settings-option">
+        <div class="settings-option-main">
+          <div class="settings-option-title">고급 정보 표시</div>
+          <div class="settings-option-sub">상태 탭에 버전, URL, origin 같은 기술 정보를 추가로 보여줍니다.</div>
+        </div>
+        <button class="settings-option-btn" id="settings-advanced-btn" onclick="toggleAdvancedInfoFromSettings()">OFF</button>
+      </div>
+      <div class="settings-option">
+        <div class="settings-option-main">
+          <div class="settings-option-title">기본 시작 탭</div>
+          <div class="settings-option-sub">미니앱을 다시 열었을 때 가장 먼저 보여줄 탭입니다.</div>
+        </div>
+        <button class="settings-option-btn" id="settings-start-tab-btn" onclick="cycleStartTabFromSettings()">terminal</button>
       </div>
       <div class="settings-option">
         <div class="settings-option-main">
@@ -2774,6 +2788,22 @@ function setFullscreenPreferred(open) {
   try { localStorage.setItem('openclaw_pref_fullscreen', open ? '1' : '0'); } catch (_) {}
 }
 
+function getAdvancedInfoOpen() {
+  try { return localStorage.getItem('openclaw_show_advanced_info') === '1'; } catch (_) { return false; }
+}
+
+function setAdvancedInfoOpen(open) {
+  try { localStorage.setItem('openclaw_show_advanced_info', open ? '1' : '0'); } catch (_) {}
+}
+
+function getStartTabPreference() {
+  try { return localStorage.getItem('openclaw_start_tab') || 'terminal'; } catch (_) { return 'terminal'; }
+}
+
+function setStartTabPreference(tab) {
+  try { localStorage.setItem('openclaw_start_tab', tab); } catch (_) {}
+}
+
 function toggleStatusHelp() {
   const content = document.getElementById('status-content');
   const btn = document.getElementById('status-help-toggle');
@@ -2810,12 +2840,24 @@ async function toggleFullscreenPreference() {
 
 function syncSettingsModalState() {
   const helpBtn = document.getElementById('settings-help-btn');
+  const advancedBtn = document.getElementById('settings-advanced-btn');
+  const startTabBtn = document.getElementById('settings-start-tab-btn');
   const fullscreenBtn = document.getElementById('settings-fullscreen-btn');
   const helpOpen = getStatusHelpOpen();
+  const advancedOpen = getAdvancedInfoOpen();
+  const startTab = getStartTabPreference();
   const fullscreenOpen = getFullscreenPreferred();
   if (helpBtn) {
     helpBtn.textContent = helpOpen ? 'ON' : 'OFF';
     helpBtn.classList.toggle('active', helpOpen);
+  }
+  if (advancedBtn) {
+    advancedBtn.textContent = advancedOpen ? 'ON' : 'OFF';
+    advancedBtn.classList.toggle('active', advancedOpen);
+  }
+  if (startTabBtn) {
+    startTabBtn.textContent = startTab;
+    startTabBtn.classList.add('active');
   }
   if (fullscreenBtn) {
     fullscreenBtn.textContent = fullscreenOpen ? 'ON' : 'OFF';
@@ -2837,7 +2879,25 @@ function toggleStatusHelpFromSettings() {
   if (activeTab !== 'status') switchTab('status');
   toggleStatusHelp();
   syncSettingsModalState();
-  toast(getStatusHelpOpen() ? '설명 모드를 켰어요' : '설명 모드를 껐어요', 1400, true);
+  toast(getStatusHelpOpen() ? '설명 기본값을 켰어요' : '설명 기본값을 껐어요', 1400, true);
+}
+
+function toggleAdvancedInfoFromSettings() {
+  const next = !getAdvancedInfoOpen();
+  setAdvancedInfoOpen(next);
+  syncSettingsModalState();
+  if (activeTab === 'status') loadStatus();
+  toast(next ? '고급 정보 표시를 켰어요' : '고급 정보 표시를 껐어요', 1400, true);
+}
+
+function cycleStartTabFromSettings() {
+  const tabs = ['terminal', 'status', 'agents', 'sessions', 'cron'];
+  const current = getStartTabPreference();
+  const index = tabs.indexOf(current);
+  const next = tabs[(index + 1 + tabs.length) % tabs.length];
+  setStartTabPreference(next);
+  syncSettingsModalState();
+  toast(`기본 시작 탭: ${next}`, 1400, true);
 }
 
 async function toggleFullscreenFromSettings() {
@@ -2930,6 +2990,7 @@ async function loadStatus() {
     const heartbeatAgents = s?.heartbeat?.agents || [];
     const activeAgents = heartbeatAgents.filter(a => a.enabled);
     const channels = s?.channels || [];
+    const showAdvanced = getAdvancedInfoOpen();
 
     bar.innerHTML = `
       <div class="status-chip ${gateway.reachable ? 'ok' : 'error'}"><span class="status-dot"></span>${gateway.reachable ? '온라인' : '오프라인'}</div>
@@ -2958,6 +3019,12 @@ async function loadStatus() {
         <div class="item"><div class="item-label">열려 있는 세션</div><div class="item-stack"><div class="item-value">${sessions.count ?? 0}개</div><div class="item-sub">계속 이어서 쓸 수 있는 세션 수예요</div></div></div>
         <div class="item"><div class="item-label">최근 오류</div><div class="item-stack"><div class="item-value ${lastErrorState ? 'negative' : 'positive'}">${lastErrorState ? '있어요' : '없어요'}</div><div class="item-sub">${lastErrorState ? '진단 메뉴에서 원인을 더 볼 수 있어요' : '지금은 큰 오류 흔적이 없어요'}</div></div></div>
       </div>
+      ${showAdvanced ? `<div class="section">
+        <div class="section-header"><h2>고급 정보</h2></div>
+        <div class="item"><div class="item-label">버전</div><div class="item-value">${esc(s.runtime_version || '—')}</div></div>
+        <div class="item"><div class="item-label">Gateway URL</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(gateway.url || '—')}</div></div>
+        <div class="item"><div class="item-label">서비스</div><div class="item-value">${esc(gateway.service || '—')}</div></div>
+      </div>` : ''}
       <div class="section">
         <div class="section-header"><h2>빠른 실행</h2></div>
         <div class="quick-grid">
@@ -2975,6 +3042,12 @@ async function loadStatus() {
         <div class="item"><div class="item-label">판단</div><div class="item-stack"><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? '지금 접속 주소와 설정된 공개 주소가 달라 보여요' : '큰 주소 불일치는 없어 보여요'}</div><div class="item-sub">여기서 어디부터 봐야 할지 감을 잡습니다</div></div></div>
         ${lastErrorState ? `<div class="item"><div class="item-label">최근 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>` : ''}
       </div>
+      ${showAdvanced ? `<div class="section">
+        <div class="section-header"><h2>고급 진단 정보</h2></div>
+        <div class="item"><div class="item-label">Public origin</div><div class="item-value">${diag?.bridge?.public_origin_configured ? esc(diag.bridge.public_origin) : '미설정'}</div></div>
+        <div class="item"><div class="item-label">현재 접속</div><div class="item-value">${esc(window.location.origin)}</div></div>
+        <div class="item"><div class="item-label">외부 응답</div><div class="item-value" style="white-space:pre-wrap;text-align:right">${diag?.external_probe?.status ? 'HTTP ' + diag.external_probe.status : '—'}${diag?.external_probe?.detail ? ' · ' + esc(diag.external_probe.detail) : ''}</div></div>
+      </div>` : ''}
       <div class="section">
         <div class="section-header"><h2>진단 실행</h2></div>
         <div class="quick-grid">
@@ -3935,6 +4008,9 @@ async function init() {
     loadTerminalOverview();
     registerAttachmentInteractions();
     updateMainActionButton();
+
+    const preferredTab = getStartTabPreference();
+    if (preferredTab && preferredTab !== 'terminal') switchTab(preferredTab);
 
     addMsg('system', 'OpenClaw 터미널입니다. /help 를 입력하거나 메뉴에서 명령을 선택하세요.');
     input.focus();
