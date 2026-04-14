@@ -2649,53 +2649,47 @@ async function loadStatus() {
 
     const statusCheckBody = `
       <div class="section">
-        <div class="section-header"><h2>OpenClaw 런타임</h2></div>
-        <div class="item"><div class="item-label">버전</div><div class="item-value">${esc(s.runtime_version || '—')}</div></div>
-        <div class="item"><div class="item-label">Gateway</div><div class="item-value">${gateway.reachable ? 'reachable' : 'unreachable'}</div></div>
-        <div class="item"><div class="item-label">Gateway URL</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(gateway.url || '—')}</div></div>
-        <div class="item"><div class="item-label">서비스</div><div class="item-value">${esc(gateway.service || '—')}</div></div>
+        <div class="section-header"><h2>지금 상태</h2></div>
+        <div class="item"><div class="item-label">OpenClaw 연결</div><div class="item-value ${gateway.reachable ? 'positive' : 'negative'}">${gateway.reachable ? '정상이에요' : '지금 연결이 불안정해요'}</div></div>
+        <div class="item"><div class="item-label">진행 중 작업</div><div class="item-value">${tasks.active ?? 0}개</div></div>
+        <div class="item"><div class="item-label">열려 있는 세션</div><div class="item-value">${sessions.count ?? 0}개</div></div>
+        <div class="item"><div class="item-label">최근 오류</div><div class="item-value ${lastErrorState ? 'negative' : 'positive'}">${lastErrorState ? '있어요' : '없어요'}</div></div>
       </div>
       <div class="section">
-        <div class="section-header"><h2>작업 및 세션</h2></div>
-        <div class="item"><div class="item-label">활성 작업</div><div class="item-value">${tasks.active ?? 0}</div></div>
-        <div class="item"><div class="item-label">실패 누적</div><div class="item-value">${tasks.failures ?? 0}</div></div>
-        <div class="item"><div class="item-label">전체 세션</div><div class="item-value">${sessions.count ?? 0}</div></div>
-        <div class="item"><div class="item-label">활성 heartbeat agent</div><div class="item-value">${activeAgents.length}</div></div>
-        ${recent.length ? recent.map(r => `<div class="item"><div class="item-label">${esc(r.agent_id || 'agent')}</div><div class="item-value">${esc(r.model || '—')} · ${r.percent_used != null ? r.percent_used + '%' : 'ctx —'}</div></div>`).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
+        <div class="section-header"><h2>이 메뉴에서 할 수 있는 일</h2></div>
+        <div class="item"><div class="item-label">상태 요약</div><div class="item-value">지금 살아 있는지 전체 상태를 한 번에 봅니다</div></div>
+        <div class="item"><div class="item-label">새로고침</div><div class="item-value">방금 상태로 다시 확인합니다</div></div>
+        ${recent.length ? `<div class="item"><div class="item-label">최근 세션</div><div class="item-value">최근 사용한 세션 흐름도 같이 볼 수 있어요</div></div>` : ''}
       </div>
       <div class="section">
         <div class="section-header"><h2>빠른 실행</h2></div>
         <div class="quick-grid">
           <button class="qbtn reload" onclick="loadStatus()">새로고침</button>
           <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 요약</button>
-          <button class="qbtn" onclick="quickCmd('/model')">모델</button>
-          <button class="qbtn" onclick="quickCmd('/help')">도움말</button>
         </div>
       </div>`;
 
     const diagnosticsBody = `
       <div class="section">
-        <div class="section-header"><h2>접속 진단</h2></div>
-        <div class="item"><div class="item-label">Public origin</div><div class="item-value">${diag?.bridge?.public_origin_configured ? esc(diag.bridge.public_origin) : '미설정'}</div></div>
-        <div class="item"><div class="item-label">현재 접속</div><div class="item-value">${esc(window.location.origin)}</div></div>
-        <div class="item"><div class="item-label">Gateway 연결</div><div class="item-value ${diag?.gateway?.reachable ? 'positive' : 'negative'}">${diag?.gateway?.reachable ? '정상' : '불안정'}</div></div>
-        <div class="item"><div class="item-label">Cloudflared 서비스</div><div class="item-value ${(diag?.cloudflared?.launch_agent_running && (diag?.cloudflared?.matching_processes || 0) >= 1) ? 'positive' : 'negative'}">${diag?.cloudflared?.launch_agent_running ? '실행 중' : '중지됨'}</div></div>
-        <div class="item"><div class="item-label">Tunnel 프로세스 수</div><div class="item-value ${((diag?.cloudflared?.matching_processes || 0) > 1) ? 'negative' : 'positive'}">${diag?.cloudflared?.matching_processes ?? 0}</div></div>
-        <div class="item"><div class="item-label">외부 health probe</div><div class="item-value ${diag?.external_probe?.reachable ? 'positive' : 'negative'}">${diag?.external_probe?.configured ? (diag?.external_probe?.reachable ? '정상' : '실패') : '미설정'}</div></div>
-        <div class="item"><div class="item-label">외부 응답</div><div class="item-value" style="white-space:pre-wrap;text-align:right">${diag?.external_probe?.status ? 'HTTP ' + diag.external_probe.status : '—'}${diag?.external_probe?.detail ? ' · ' + esc(diag.external_probe.detail) : ''}</div></div>
-        <div class="item"><div class="item-label">Telegram Bot token</div><div class="item-value">${diag?.auth?.telegram_bot_token_configured ? '설정됨' : '없음'}</div></div>
-        <div class="item"><div class="item-label">Ed25519 검증</div><div class="item-value">${diag?.auth?.ed25519_available ? '사용 가능' : '미사용'}</div></div>
-        <div class="item"><div class="item-label">Fallback Bearer</div><div class="item-value">${diag?.auth?.shared_token_configured ? '설정됨' : '없음'}</div></div>
-        <div class="item"><div class="item-label">판단</div><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'public origin 불일치' : '브리지 기준 정상'}</div></div>
-        ${lastErrorState ? `<div class="item"><div class="item-label">마지막 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>` : `<div class="item"><div class="item-label">마지막 오류</div><div class="item-value positive">없음</div></div>`}
+        <div class="section-header"><h2>어디가 막혔는지 보기</h2></div>
+        <div class="item"><div class="item-label">앱 내부 연결</div><div class="item-value ${diag?.gateway?.reachable ? 'positive' : 'negative'}">${diag?.gateway?.reachable ? '앱 안쪽은 정상이에요' : '앱 안쪽 연결이 흔들려요'}</div></div>
+        <div class="item"><div class="item-label">외부 접속</div><div class="item-value ${diag?.external_probe?.reachable ? 'positive' : 'negative'}">${diag?.external_probe?.configured ? (diag?.external_probe?.reachable ? '밖에서도 잘 열려요' : '밖에서 접속이 안 돼요') : '아직 확인 설정이 없어요'}</div></div>
+        <div class="item"><div class="item-label">터널 상태</div><div class="item-value ${(diag?.cloudflared?.launch_agent_running && (diag?.cloudflared?.matching_processes || 0) >= 1) ? 'positive' : 'negative'}">${diag?.cloudflared?.launch_agent_running ? '터널이 실행 중이에요' : '터널이 멈춰 있어요'}</div></div>
+        <div class="item"><div class="item-label">판단</div><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? '지금 접속 주소와 설정된 공개 주소가 달라 보여요' : '큰 주소 불일치는 없어 보여요'}</div></div>
+        ${lastErrorState ? `<div class="item"><div class="item-label">최근 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>` : ''}
+      </div>
+      <div class="section">
+        <div class="section-header"><h2>진단 버튼 설명</h2></div>
+        <div class="item"><div class="item-label">연결 확인</div><div class="item-value">외부에서 이 미니앱 주소가 실제로 열리는지 확인합니다</div></div>
+        <div class="item"><div class="item-label">문제 진단</div><div class="item-value">터널과 연결 문제를 더 자세히 확인합니다</div></div>
+        <div class="item"><div class="item-label">브리지 로그</div><div class="item-value">미니앱 bridge 쪽 오류 기록을 봅니다</div></div>
+        <div class="item"><div class="item-label">심층 상태</div><div class="item-value">업데이트 꼬임이나 gateway 이상을 더 깊게 봅니다</div></div>
       </div>
       <div class="section">
         <div class="section-header"><h2>진단 실행</h2></div>
         <div class="quick-grid">
-          <button class="qbtn" onclick="openOpsDetail('터널 상태', '/tunnel status', 'status')">터널 상태</button>
-          <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')">외부 probe</button>
-          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">터널 진단</button>
-          <button class="qbtn" onclick="openOpsDetail('터널 로그', '/logs tunnel 40', 'log')">터널 로그</button>
+          <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')">연결 확인</button>
+          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">문제 진단</button>
           <button class="qbtn" onclick="openOpsDetail('브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
           <button class="qbtn" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
         </div>
@@ -2703,49 +2697,32 @@ async function loadStatus() {
 
     const recoveryBody = `
       <div class="section">
-        <div class="section-header"><h2>조치형 복구</h2></div>
-        <div class="item"><div class="item-label">안내</div><div class="item-value">실행 시 서비스가 잠깐 끊길 수 있어요</div></div>
+        <div class="section-header"><h2>복구 버튼 설명</h2></div>
+        <div class="item"><div class="item-label">브리지 재확인</div><div class="item-value">잠깐 끊겼는지 다시 확인합니다. 가장 가벼운 확인 버튼이에요</div></div>
+        <div class="item"><div class="item-label">브리지 재시작</div><div class="item-value">미니앱 bridge만 다시 올립니다. 보통 이걸 먼저 눌러보면 됩니다</div></div>
+        <div class="item"><div class="item-label">게이트웨이 재시작</div><div class="item-value">OpenClaw 전체 연결 축을 다시 시작합니다. 영향이 더 커요</div></div>
+        <div class="item"><div class="item-label">문제 진단</div><div class="item-value">바로 재시작하기 전에 원인을 먼저 보고 싶을 때 씁니다</div></div>
+      </div>
+      <div class="section">
+        <div class="section-header"><h2>추천 순서</h2></div>
+        <div class="item"><div class="item-label">가벼운 문제</div><div class="item-value">연결 확인 → 문제 진단 → 브리지 재시작</div></div>
+        <div class="item"><div class="item-label">업데이트 후 이상</div><div class="item-value">심층 상태 → 브리지 로그 → 게이트웨이 재시작</div></div>
+      </div>
+      <div class="section">
+        <div class="section-header"><h2>복구 실행</h2></div>
         <div class="quick-grid">
           <button class="qbtn" onclick="checkConn(true)">브리지 재확인</button>
+          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">문제 진단</button>
           <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
           <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
-          ${lastErrorState ? `<button class="qbtn" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : `<button class="qbtn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>`}
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-header"><h2>업데이트 실패 복구 모드</h2></div>
-        <div class="item"><div class="item-label">권장 순서</div><div class="item-value">심층 상태 확인 → 로그 확인 → 게이트웨이 재시작</div></div>
-        <div class="quick-grid">
-          <button class="qbtn" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
-          <button class="qbtn" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
-          <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
-          <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-header"><h2>최후 복구 가이드</h2></div>
-        <div class="item"><div class="item-label">언제 쓰나</div><div class="item-value">bridge까지 죽어서 이 미니앱 버튼도 안 먹을 때</div></div>
-        <div class="item"><div class="item-label">1단계</div><div class="item-stack"><div class="item-value mono">curl http://127.0.0.1:8765/health</div><div class="item-sub">bridge 자체가 살아 있는지 먼저 확인</div></div></div>
-        <div class="quick-grid" style="padding:0 12px 10px">
-          <button class="qbtn" onclick='copyText("curl http://127.0.0.1:8765/health", "bridge health 복사")'>bridge health 복사</button>
-          <button class="qbtn" onclick='copyText("curl https://miniapp.techkwon.kr/health", "public health 복사")'>public health 복사</button>
-        </div>
-        <div class="item"><div class="item-label">2단계</div><div class="item-stack"><div class="item-value mono">launchctl kickstart -k gui/$(id -u)/ai.openclaw.miniapp-bridge</div><div class="item-sub">bridge만 죽었으면 이걸로 먼저 살리기</div></div></div>
-        <div class="quick-grid" style="padding:0 12px 10px">
-          <button class="qbtn reload" onclick='copyText("launchctl kickstart -k gui/$(id -u)/ai.openclaw.miniapp-bridge", "bridge restart 복사")'>bridge restart 복사</button>
-        </div>
-        <div class="item"><div class="item-label">3단계</div><div class="item-stack"><div class="item-value mono">openclaw gateway status --deep</div><div class="item-sub">업데이트 꼬임이나 gateway 비정상 여부 확인</div></div></div>
-        <div class="quick-grid" style="padding:0 12px 10px">
-          <button class="qbtn" onclick='copyText("openclaw gateway status --deep", "gateway status 복사")'>gateway status 복사</button>
-          <button class="qbtn danger" onclick='copyText("openclaw gateway restart", "gateway restart 복사")'>gateway restart 복사</button>
         </div>
       </div>`;
 
     content.innerHTML = `
       ${alertHtml}
-      ${renderAccordionSection('status-check', '1', '상태 확인', 'OpenClaw 상태와 핵심 세션 요약', statusCheckBody, true)}
-      ${renderAccordionSection('diagnostics', '2', '진단', '터널, bridge, gateway 이상 여부 확인', diagnosticsBody, false)}
-      ${renderAccordionSection('recovery', '3', '복구', '재시작과 최후 복구 가이드', recoveryBody, false)}
+      ${renderAccordionSection('status-check', '1', '상태 확인', '지금 살아 있는지 쉽게 확인', statusCheckBody, true)}
+      ${renderAccordionSection('diagnostics', '2', '진단', '어디가 막혔는지 찾기', diagnosticsBody, false)}
+      ${renderAccordionSection('recovery', '3', '복구', '필요한 복구 버튼만 보기', recoveryBody, false)}
     `;
   } catch (e) {
     rememberError(e.message, 'status');
