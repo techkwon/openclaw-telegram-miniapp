@@ -666,6 +666,13 @@ body {
 .recovery-history-name { font-size: 11px; font-weight: 700; color: var(--text); }
 .recovery-history-meta { font-size: 10px; color: var(--hint); }
 .recovery-history-result { font-size: 10px; color: var(--hint); margin-top: 5px; line-height: 1.45; }
+.recovery-history-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top: 8px; }
+.recovery-history-btn {
+  border:none; border-radius:999px; padding:6px 9px; cursor:pointer;
+  background: rgba(255,255,255,.06); color: var(--text); font-size:10px; font-weight:700;
+}
+.recovery-history-btn.warn { background: rgba(245,158,11,.12); color:#f59e0b; }
+.recovery-history-btn[disabled] { opacity:.55; cursor:default; }
 .detail-tabs { display:flex; gap:6px; padding: 0 0 12px; flex-wrap:wrap; }
 .detail-tab { min-height:40px; padding:9px 12px; border:none; border-radius:999px; font-size:11px; font-weight:700; background: rgba(255,255,255,.06); color: var(--hint); cursor:pointer; }
 .detail-tab.active { background: rgba(79,70,229,.18); color: var(--accent); }
@@ -1456,6 +1463,7 @@ let lastErrorState = null;
 let terminalSummary = null;
 let recoveryHistory = [];
 let actionBusy = false;
+let actionBusyKey = '';
 let currentMainButtonHandler = null;
 let biometricReady = false;
 let runCatTimer = null;
@@ -2496,10 +2504,38 @@ function fmtRecoveryTime(ts) {
   try { return new Date(ts).toLocaleString(); } catch (_) { return '방금'; }
 }
 
+function openRecoveryHistoryDetail(index) {
+  const items = recoveryHistory.length ? recoveryHistory : getRecoveryHistory();
+  const item = items[index];
+  if (!item) return;
+  const actionArg = JSON.stringify(item.action || '');
+  const labelArg = JSON.stringify(item.label || '복구 실행');
+  const copyTextValue = JSON.stringify((item.label || '복구 실행') + '\n' + (item.fullText || item.summary || ''));
+  openDetailModal(item.label || '복구 이력', `
+    <div class="history-card system">
+      <div class="history-head"><div class="history-role-wrap"><div class="history-icon">🛠️</div><div class="history-role system">recovery</div></div><div class="history-meta">${esc(fmtRecoveryTime(item.at))}</div></div>
+      <div class="history-text">${renderMsg((item.label || '복구 실행') + '\n\n' + (item.fullText || item.summary || '상세 정보 없음'))}</div>
+    </div>
+    <div class="quick-grid" style="padding:0 0 12px">
+      <button class="qbtn warn" onclick='runRecoveryAction(${actionArg}, ${labelArg}); closeDetailModal();'>다시 실행</button>
+      <button class="qbtn" onclick='copyText(${copyTextValue}, "복구 이력 복사")'>내용 복사</button>
+    </div>
+  `);
+}
+
+function rerunRecoveryHistory(index) {
+  const items = recoveryHistory.length ? recoveryHistory : getRecoveryHistory();
+  const item = items[index];
+  if (!item?.action) return;
+  runRecoveryAction(item.action, item.label || '복구 실행');
+}
+
 function renderRecoveryHistoryCard(compact = false) {
   const items = recoveryHistory.length ? recoveryHistory : getRecoveryHistory();
   if (!items.length) return '';
-  const body = items.slice(0, compact ? 2 : 4).map(item => `
+  const body = items.slice(0, compact ? 2 : 4).map((item, index) => {
+    const busy = actionBusy && actionBusyKey === `${item.action || ''}::${item.label || ''}`;
+    return `
     <div class="recovery-history-item">
       <div class="recovery-history-top">
         <div class="recovery-history-name">${esc(item.label || '복구 실행')}</div>
@@ -2510,8 +2546,13 @@ function renderRecoveryHistoryCard(compact = false) {
         <span class="mini-badge info">${esc(item.action || 'action')}</span>
       </div>
       <div class="recovery-history-result">${esc(item.summary || (item.ok ? '복구 작업이 완료됐어요' : '복구 작업이 실패했어요'))}</div>
+      <div class="recovery-history-actions">
+        <button class="recovery-history-btn warn" onclick="rerunRecoveryHistory(${index})" ${busy || actionBusy ? 'disabled' : ''}>${busy ? '실행 중...' : '다시 실행'}</button>
+        <button class="recovery-history-btn" onclick="openRecoveryHistoryDetail(${index})" ${actionBusy ? 'disabled' : ''}>상세 보기</button>
+      </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   if (compact) {
     return `
       <div class="terminal-error-card" style="margin:0 12px 12px">
@@ -2532,13 +2573,20 @@ function renderRecoveryHistoryCard(compact = false) {
 
 async function runRecoveryAction(action, label) {
   if (actionBusy) return;
-  const confirmed = window.confirm(`${label}을(를) 실행할까요? 서비스가 잠깐 끊길 수 있어요.`);
-  if (!confirmed) return;
-  if (action === 'restart_gateway' || action === 'restart_bridge') {
+  const needsGuard = action === 'restart_gateway' || action === 'restart_bridge';
+  const guard = needsGuard ? getRecoveryGuardLevel() : 'off';
+  if (!needsGuard || guard === 'off') {
+    const confirmed = window.confirm(`${label}을(를) 실행할까요? 서비스가 잠깐 끊길 수 있어요.`);
+    if (!confirmed) return;
+  }
+  if (needsGuard) {
     const allowed = await requireRecoveryGuard(action, label);
     if (!allowed) return;
   }
   actionBusy = true;
+  actionBusyKey = `${action || ''}::${label || ''}`;
+  renderTerminalOverview();
+  if (activeTab === 'status') loadStatus();
   try {
     if (WebApp?.enableClosingConfirmation) WebApp.enableClosingConfirmation();
     if (WebApp?.MainButton?.showProgress) WebApp.MainButton.showProgress();
@@ -2557,11 +2605,11 @@ async function runRecoveryAction(action, label) {
       const diag = await api('/api/diagnostics').catch(() => ({}));
       terminalSummary = { runtime, diag, at: Date.now() };
       const summaryText = summarizeRecoverySnapshot(label, runtime, diag);
-      addRecoveryHistory({ action, label, ok: !!runtime?.gateway?.reachable, at: Date.now(), summary: summaryText.split('\n').slice(1).join(' ') });
+      addRecoveryHistory({ action, label, ok: !!runtime?.gateway?.reachable, at: Date.now(), summary: summaryText.split('\n').slice(1).join(' '), fullText: summaryText });
       renderTerminalOverview();
       addMsg('system', summaryText);
     } catch (_) {
-      addRecoveryHistory({ action, label, ok: false, at: Date.now(), summary: '상태 재확인 실패. 잠깐 후 새로고침하거나 브리지 로그를 확인해 주세요.' });
+      addRecoveryHistory({ action, label, ok: false, at: Date.now(), summary: '상태 재확인 실패. 잠깐 후 새로고침하거나 브리지 로그를 확인해 주세요.', fullText: `${label} 후 상태 재확인 실패\n• 판단: bridge 또는 gateway가 아직 다시 올라오는 중일 수 있어요.\n• 다음 액션: 잠깐 후 새로고침하거나 브리지 로그를 확인해 주세요.` });
       addMsg('system', `${label} 후 상태 재확인 실패\n• 판단: bridge 또는 gateway가 아직 다시 올라오는 중일 수 있어요.\n• 다음 액션: 잠깐 후 새로고침하거나 브리지 로그를 확인해 주세요.`);
     }
 
@@ -2569,13 +2617,16 @@ async function runRecoveryAction(action, label) {
     setTimeout(() => { checkConn(); loadTerminalOverview(true); }, 1800);
   } catch (e) {
     rememberError(e.message, action);
-    addRecoveryHistory({ action, label, ok: false, at: Date.now(), summary: e.message || '실행 실패' });
+    addRecoveryHistory({ action, label, ok: false, at: Date.now(), summary: e.message || '실행 실패', fullText: `${label} 실패: ${e.message || '실행 실패'}\n• 판단: bridge 자체가 죽었거나 로컬 openclaw 명령이 깨졌을 수 있어요.\n• 다음 액션: 심층 상태, 브리지 로그 순서로 보는 쪽이 좋습니다.` });
     addMsg('system', `${label} 실패: ${e.message}\n• 판단: bridge 자체가 죽었거나 로컬 openclaw 명령이 깨졌을 수 있어요.\n• 다음 액션: 심층 상태, 브리지 로그 순서로 보는 쪽이 좋습니다.`);
     toast(`${label} 실패`, 2200);
   } finally {
     if (WebApp?.MainButton?.hideProgress) WebApp.MainButton.hideProgress();
     if (WebApp?.disableClosingConfirmation) WebApp.disableClosingConfirmation();
     actionBusy = false;
+    actionBusyKey = '';
+    renderTerminalOverview();
+    if (activeTab === 'status') loadStatus();
     updateMainActionButton();
   }
 }
