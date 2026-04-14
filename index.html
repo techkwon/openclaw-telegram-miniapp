@@ -483,6 +483,12 @@ body {
 .terminal-overview .accordion-body {
   border-top: 1px solid rgba(255,255,255,.04);
 }
+.terminal-overview-summary {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding: 0 12px 10px;
+}
+.terminal-overview-body { display:none; }
+.terminal-summary-card.open .terminal-overview-body { display:block; }
 .terminal-card-head {
   display:flex; align-items:center; justify-content:space-between; gap:8px;
   padding: 10px 12px 0;
@@ -2146,6 +2152,7 @@ function renderTerminalOverview() {
   const favoriteHtml = favoriteRecent.length
     ? favoriteRecent.map(s => `<button class="terminal-session-chip" onclick='setComposerTarget(${JSON.stringify(s.session_id || s.key || '')}, ${JSON.stringify(s.agent_id || s.key || 'session')})'><strong>★</strong>${esc(s.agent_id || 'session')} · ${esc(s.percent_used != null ? s.percent_used + '%' : 'ctx —')}</button>`).join('')
     : favoriteKeys.map(favoriteSessionQuickChip).join('');
+  const cardOpen = getAccordionOpen('terminal-overview-card', false);
 
   const statusBody = `
     <div class="terminal-alerts">
@@ -2190,21 +2197,33 @@ function renderTerminalOverview() {
   `;
 
   wrap.innerHTML = `
-    <div class="terminal-summary-card">
-      <div class="terminal-card-head">
-        <div>
-          <div class="terminal-card-title">운영 요약</div>
-          <div class="terminal-card-sub">터미널 메시지를 가리지 않게 접었다 펼 수 있어요</div>
+    <div class="terminal-summary-card ${cardOpen ? 'open' : ''}" id="accordion-terminal-overview-card">
+      <button class="accordion-header" onclick="toggleAccordion('terminal-overview-card')">
+        <div class="accordion-title-wrap">
+          <div>
+            <div class="terminal-card-title">운영 요약</div>
+            <div class="terminal-card-sub">기본은 접힘, 필요할 때만 펼쳐서 봅니다</div>
+          </div>
         </div>
-        <button class="terminal-action primary" onclick="loadTerminalOverview()">새로고침</button>
+        <div class="accordion-chevron">⌄</div>
+      </button>
+      <div class="terminal-overview-summary">
+        <span class="terminal-pill ${gateway.reachable ? 'ok' : 'error'}">gateway ${gateway.reachable ? 'online' : 'offline'}</span>
+        <span class="terminal-pill ${probeFail ? 'error' : 'info'}">probe ${probeFail ? 'fail' : 'ok'}</span>
+        <span class="terminal-pill ${(tasks.failures || 0) > 0 ? 'warn' : 'ok'}">failures ${tasks.failures || 0}</span>
+        <span class="terminal-pill info">sessions ${sessions.count || 0}</span>
+        <button class="terminal-action" onclick="event.stopPropagation();loadTerminalOverview()">새로고침</button>
       </div>
-      <div class="terminal-actions-block">
-        ${renderAccordionSection('terminal-status-check', '1', '상태 확인', 'OpenClaw 상태와 핵심 세션 요약', statusBody, false)}
-        ${renderAccordionSection('terminal-diagnostics', '2', '진단', '터널, bridge, gateway 이상 여부 확인', diagnosticsBody, false)}
-        ${renderAccordionSection('terminal-recovery', '3', '복구', '재시작과 장애 복구 동선', recoveryBody, false)}
+      <div class="terminal-overview-body">
+        <div class="terminal-actions-block">
+          ${renderAccordionSection('terminal-status-check', '1', '상태 확인', 'OpenClaw 상태와 핵심 세션 요약', statusBody, false)}
+          ${renderAccordionSection('terminal-diagnostics', '2', '진단', '터널, bridge, gateway 이상 여부 확인', diagnosticsBody, false)}
+          ${renderAccordionSection('terminal-recovery', '3', '복구', '재시작과 장애 복구 동선', recoveryBody, false)}
+        </div>
       </div>
     </div>
   `;
+  ['terminal-status-check','terminal-diagnostics','terminal-recovery'].forEach(k => setAccordionOpen(k, false));
   wrap.classList.add('visible');
 }
 
@@ -2566,9 +2585,10 @@ function setAccordionOpen(key, open) {
 }
 
 function toggleAccordion(key) {
-  const next = !getAccordionOpen(key, true);
-  setAccordionOpen(key, next);
   const el = document.getElementById('accordion-' + key);
+  const current = el ? el.classList.contains('open') : getAccordionOpen(key, false);
+  const next = !current;
+  setAccordionOpen(key, next);
   if (el) el.classList.toggle('open', next);
 }
 
