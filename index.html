@@ -635,6 +635,20 @@ body {
 }
 .settings-option-btn.active { background: rgba(79,70,229,.18); color: var(--accent); }
 .settings-note { font-size: 10px; color: var(--hint); line-height: 1.45; padding: 2px 2px 0; }
+.recommend-card {
+  margin: 0 14px 10px; background: rgba(79,70,229,.10); border: 1px solid rgba(79,70,229,.18);
+  border-radius: 14px; overflow: hidden;
+}
+.recommend-card.warn {
+  background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.18);
+}
+.recommend-card.error {
+  background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.18);
+}
+.recommend-head { padding: 12px 14px 6px; }
+.recommend-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.recommend-sub { font-size: 10px; color: var(--hint); margin-top: 3px; line-height: 1.4; }
+.recommend-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding: 6px 12px 12px; }
 .detail-tabs { display:flex; gap:6px; padding: 0 0 12px; flex-wrap:wrap; }
 .detail-tab { min-height:40px; padding:9px 12px; border:none; border-radius:999px; font-size:11px; font-weight:700; background: rgba(255,255,255,.06); color: var(--hint); cursor:pointer; }
 .detail-tab.active { background: rgba(79,70,229,.18); color: var(--accent); }
@@ -2370,6 +2384,7 @@ function renderTerminalOverview() {
   `;
 
   const recoveryBody = `
+    ${renderSuggestedActionsCard(runtime, diag, true)}
     <div class="terminal-actions-label">Telegram이 안 되거나 OpenClaw가 흔들릴 때 쓰는 복구 버튼</div>
     <div class="terminal-actions">
       <button class="terminal-action" onclick="checkConn(true)">브리지 재확인</button>
@@ -2381,7 +2396,7 @@ function renderTerminalOverview() {
     <div class="terminal-actions">
       <button class="terminal-action" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
       <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
-      <button class="terminal-action" onclick="switchTab('status')">최후 복구 가이드 보기</button>
+      <button class="terminal-action" onclick="switchTab('status')">상태 패널 보기</button>
     </div>
   `;
 
@@ -3098,6 +3113,106 @@ function renderAccordionSection(key, index, title, subtitle, body, defaultOpen =
   `;
 }
 
+function buildSuggestedActions(runtime, diag) {
+  const gateway = runtime?.gateway || {};
+  const probe = diag?.external_probe || {};
+  const cloud = diag?.cloudflared || {};
+  const bridge = diag?.bridge || {};
+
+  if (!gateway.reachable) {
+    return {
+      level: 'error',
+      title: '게이트웨이 연결이 불안정해 보여요',
+      subtitle: '먼저 상태를 더 보고, 필요하면 게이트웨이를 다시 시작하는 쪽이 좋습니다.',
+      actions: [
+        { label: '심층 상태', onclick: `openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')`, cls: '' },
+        { label: '게이트웨이 재시작', onclick: `runRecoveryAction('restart_gateway', '게이트웨이 재시작')`, cls: 'danger' },
+      ],
+    };
+  }
+
+  if (probe.configured && probe.reachable === false) {
+    return {
+      level: 'warn',
+      title: '외부 접속이 막혀 있어 보여요',
+      subtitle: '앱 안쪽은 살아 있고 바깥 연결만 막힌 경우가 많습니다.',
+      actions: [
+        { label: '연결 확인', onclick: `openOpsDetail('외부 probe', '/tunnel probe', 'status')`, cls: '' },
+        { label: '브리지 로그', onclick: `openOpsDetail('브리지 로그', '/logs bridge 40', 'log')`, cls: '' },
+      ],
+    };
+  }
+
+  if (cloud.launch_agent_running === false) {
+    return {
+      level: 'warn',
+      title: '터널이 멈춰 있는 것 같아요',
+      subtitle: '외부 접속 문제라면 터널 진단과 브리지 쪽 로그를 먼저 보는 게 안전합니다.',
+      actions: [
+        { label: '문제 진단', onclick: `openOpsDetail('터널 진단', '/tunnel doctor', 'text')`, cls: '' },
+        { label: '브리지 로그', onclick: `openOpsDetail('브리지 로그', '/logs bridge 40', 'log')`, cls: '' },
+      ],
+    };
+  }
+
+  if (bridge.public_origin && bridge.public_origin !== window.location.origin) {
+    return {
+      level: 'warn',
+      title: '접속 주소와 공개 주소 설정이 달라 보여요',
+      subtitle: 'origin 불일치일 수 있어서 외부 연결 상태부터 다시 보는 편이 좋습니다.',
+      actions: [
+        { label: '연결 확인', onclick: `openOpsDetail('외부 probe', '/tunnel probe', 'status')`, cls: '' },
+        { label: '문제 진단', onclick: `openOpsDetail('터널 진단', '/tunnel doctor', 'text')`, cls: '' },
+      ],
+    };
+  }
+
+  if (lastErrorState) {
+    return {
+      level: 'warn',
+      title: '최근 오류가 남아 있어요',
+      subtitle: '오류 원인을 먼저 보고 필요하면 가벼운 복구부터 시도하세요.',
+      actions: [
+        { label: '문제 진단', onclick: `openOpsDetail('터널 진단', '/tunnel doctor', 'text')`, cls: '' },
+        { label: '브리지 재확인', onclick: `checkConn(true)`, cls: '' },
+      ],
+    };
+  }
+
+  return {
+    level: 'ok',
+    title: '지금은 큰 이상이 없어 보여요',
+    subtitle: '주기적으로 새로고침하거나 상태 요약 정도만 보면 충분합니다.',
+    actions: [
+      { label: '새로고침', onclick: `loadStatus()`, cls: 'reload' },
+      { label: '상태 요약', onclick: `openOpsDetail('상태 요약', '/status', 'status')`, cls: '' },
+    ],
+  };
+}
+
+function renderSuggestedActionsCard(runtime, diag, compact = false) {
+  const suggestion = buildSuggestedActions(runtime, diag);
+  const actionsHtml = suggestion.actions.map(a => `<button class="${compact ? 'terminal-action' : 'qbtn'} ${a.cls || ''}" onclick="${a.onclick}">${compact ? a.label : `<span class="qbtn-label">${a.label}</span>`}</button>`).join('');
+  if (compact) {
+    return `
+      <div class="terminal-error-card" style="margin:0 12px 12px">
+        <div class="terminal-card-head"><div><div class="terminal-card-title">추천 액션</div><div class="terminal-card-sub">${esc(suggestion.subtitle)}</div></div></div>
+        <div class="terminal-error-body" style="padding-top:4px">${esc(suggestion.title)}</div>
+        <div class="terminal-actions">${actionsHtml}</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="recommend-card ${suggestion.level === 'error' ? 'error' : suggestion.level === 'warn' ? 'warn' : ''}">
+      <div class="recommend-head">
+        <div class="recommend-title">추천 액션</div>
+        <div class="recommend-sub">${esc(suggestion.title)} ${esc(suggestion.subtitle)}</div>
+      </div>
+      <div class="recommend-actions">${actionsHtml}</div>
+    </div>
+  `;
+}
+
 // ─── STATUS ────────────────────────────────────────────────────────────────
 async function loadStatus() {
   const bar = document.getElementById('status-bar');
@@ -3207,6 +3322,7 @@ async function loadStatus() {
     content.classList.toggle('show-help', helpOpen);
     content.innerHTML = `
       ${alertHtml}
+      ${renderSuggestedActionsCard(s, diag)}
       <div class="quick-help-toggle-wrap"><button class="quick-help-toggle ${helpOpen ? 'active' : ''}" id="status-help-toggle" onclick="toggleStatusHelp()" aria-label="${helpOpen ? '설명 숨기기' : '설명 보기'}" title="${helpOpen ? '설명 숨기기' : '설명 보기'}">?</button></div>
       ${renderAccordionSection('status-check', '1', '상태 확인', '지금 살아 있는지 쉽게 확인', statusCheckBody, true)}
       ${renderAccordionSection('diagnostics', '2', '진단', '어디가 막혔는지 찾기', diagnosticsBody, false)}
