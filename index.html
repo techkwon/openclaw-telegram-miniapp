@@ -2537,6 +2537,17 @@ async function loadStatus() {
           <button class="qbtn" onclick="quickCmdWithPrompt('/session new', '새 세션에 보낼 첫 메시지를 입력하세요')">새 세션</button>
         </div>
       </div>
+
+      <div class="section">
+        <div class="section-header"><h2>조치형 복구</h2></div>
+        <div class="item"><div class="item-label">안내</div><div class="item-value">실행 시 서비스가 잠깐 끊길 수 있어요</div></div>
+        <div class="quick-grid">
+          <button class="qbtn" onclick="checkConn(true)">브리지 재확인</button>
+          <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
+          <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
+          ${lastErrorState ? `<button class="qbtn" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : `<button class="qbtn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>`}
+        </div>
+      </div>
     `;
   } catch (e) {
     rememberError(e.message, 'status');
