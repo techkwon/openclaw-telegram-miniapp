@@ -1283,9 +1283,20 @@ body {
       <div class="settings-option">
         <div class="settings-option-main">
           <div class="settings-option-title">복구 보호 레벨</div>
-          <div class="settings-option-sub">게이트웨이 재시작 전 보호 방식을 정합니다. off → confirm → biometric 순서로 바뀝니다.</div>
+          <div class="settings-option-sub">브리지/게이트웨이 재시작 전 보호 방식을 정합니다. off → confirm → biometric 순서로 바뀝니다.</div>
         </div>
         <button class="settings-option-btn" id="settings-recovery-guard-btn" onclick="cycleRecoveryGuardFromSettings()">confirm</button>
+      </div>
+      <div class="settings-option">
+        <div class="settings-option-main">
+          <div class="settings-option-title">설정 내보내기 / 가져오기 / 초기화</div>
+          <div class="settings-option-sub">현재 설정을 백업하거나 다른 기기에 옮길 수 있습니다.</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="settings-option-btn" onclick="exportSettingsConfig()">export</button>
+          <button class="settings-option-btn" onclick="importSettingsConfig()">import</button>
+          <button class="settings-option-btn" onclick="resetSettingsConfig()">reset</button>
+        </div>
       </div>
       <div class="settings-note">Telegram SettingsButton과 연결된 설정 화면입니다. 가능한 항목은 Telegram 저장소에도 함께 보관합니다.</div>
     </div>
@@ -2436,8 +2447,8 @@ async function runRecoveryAction(action, label) {
   if (actionBusy) return;
   const confirmed = window.confirm(`${label}을(를) 실행할까요? 서비스가 잠깐 끊길 수 있어요.`);
   if (!confirmed) return;
-  if (action === 'restart_gateway') {
-    const allowed = await requireBiometricForGatewayRestart();
+  if (action === 'restart_gateway' || action === 'restart_bridge') {
+    const allowed = await requireRecoveryGuard(action, label);
     if (!allowed) return;
   }
   actionBusy = true;
@@ -2837,6 +2848,14 @@ function setStartTabPreference(tab) {
   syncPrefToCloud('openclaw_start_tab', tab);
 }
 
+const SETTINGS_EXPORT_KEYS = [
+  'openclaw_status_help',
+  'openclaw_pref_fullscreen',
+  'openclaw_show_advanced_info',
+  'openclaw_start_tab',
+  'openclaw_recovery_guard',
+];
+
 function getRecoveryGuardLevel() {
   return getLocalPref('openclaw_recovery_guard', 'confirm') || 'confirm';
 }
@@ -2958,6 +2977,53 @@ function cycleRecoveryGuardFromSettings() {
   toast(`복구 보호: ${next}`, 1400, true);
 }
 
+async function exportSettingsConfig() {
+  const payload = {};
+  SETTINGS_EXPORT_KEYS.forEach(key => { payload[key] = getLocalPref(key, ''); });
+  const text = JSON.stringify(payload, null, 2);
+  await copyText(text, '설정 export 복사');
+  openDetailModal('설정 export', `<pre><code>${esc(text)}</code></pre>`);
+}
+
+async function importSettingsConfig() {
+  const raw = window.prompt('가져올 설정 JSON을 붙여넣어 주세요');
+  if (!raw || !raw.trim()) return;
+  try {
+    const parsed = JSON.parse(raw);
+    for (const key of SETTINGS_EXPORT_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+        const value = parsed[key] == null ? '' : String(parsed[key]);
+        setLocalPref(key, value);
+        await syncPrefToCloud(key, value);
+      }
+    }
+    syncSettingsModalState();
+    if (activeTab === 'status') loadStatus();
+    toast('설정을 가져왔어요', 1600, true);
+  } catch (_) {
+    toast('설정 JSON 형식이 올바르지 않아요', 1800, false);
+  }
+}
+
+async function resetSettingsConfig() {
+  const confirmed = window.confirm('미니앱 설정을 기본값으로 되돌릴까요?');
+  if (!confirmed) return;
+  const defaults = {
+    openclaw_status_help: '0',
+    openclaw_pref_fullscreen: '0',
+    openclaw_show_advanced_info: '0',
+    openclaw_start_tab: 'terminal',
+    openclaw_recovery_guard: 'confirm',
+  };
+  for (const [key, value] of Object.entries(defaults)) {
+    setLocalPref(key, value);
+    await syncPrefToCloud(key, value);
+  }
+  syncSettingsModalState();
+  if (activeTab === 'status') loadStatus();
+  toast('설정을 기본값으로 되돌렸어요', 1600, true);
+}
+
 async function toggleFullscreenFromSettings() {
   await toggleFullscreenPreference();
   syncSettingsModalState();
@@ -2989,22 +3055,22 @@ async function ensureBiometricReady() {
   return !!bio.isBiometricAvailable;
 }
 
-async function requireBiometricForGatewayRestart() {
+async function requireRecoveryGuard(action, label) {
   const guard = getRecoveryGuardLevel();
   if (guard === 'off') return true;
   if (guard === 'confirm') {
-    return window.confirm('게이트웨이를 재시작할까요? 영향 범위가 더 큰 복구 작업입니다.');
+    return window.confirm(`${label}을(를) 실행할까요? 복구 작업이 잠깐 끊길 수 있어요.`);
   }
   const bio = WebApp?.BiometricManager;
   if (!bio) return true;
   const available = await ensureBiometricReady();
   if (!available) {
     toast('이 기기에서는 생체 인증을 사용할 수 없어요', 1800, false);
-    return window.confirm('생체 인증 없이 게이트웨이를 재시작할까요?');
+    return window.confirm(`생체 인증 없이 ${label}을(를) 실행할까요?`);
   }
   if (typeof bio.authenticate !== 'function') return true;
   try {
-    const ok = await bio.authenticate({ reason: '게이트웨이 재시작 승인' });
+    const ok = await bio.authenticate({ reason: `${label} 승인` });
     if (!ok) toast('생체 인증이 취소되었어요', 1800, false);
     return !!ok;
   } catch (_) {
