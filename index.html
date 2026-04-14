@@ -762,7 +762,7 @@ body {
   padding: 6px 12px 10px;
 }
 .qbtn {
-  min-height: 54px; padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
+  min-height: 48px; padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
   border: none; cursor: pointer; font-family: inherit;
   background: rgba(79,70,229,.15); color: var(--accent);
   transition: background .15s;
@@ -770,7 +770,13 @@ body {
   text-align:left;
 }
 .qbtn-label { line-height: 1.2; }
-.qbtn-help { font-size: 9px; line-height: 1.25; color: var(--hint); font-weight: 500; opacity: .9; }
+.qbtn-help { display:none; font-size: 9px; line-height: 1.25; color: var(--hint); font-weight: 500; opacity: .9; }
+.quick-grid.show-help .qbtn-help { display:block; }
+.quick-help-toggle-wrap { padding: 0 12px 4px; }
+.quick-help-toggle {
+  border:none; border-radius:999px; padding:6px 10px; cursor:pointer;
+  background: rgba(255,255,255,.06); color: var(--hint); font-size:10px; font-weight:600;
+}
 .qbtn:active { opacity: .7; }
 .qbtn.reload { background: rgba(34,197,94,.12); color: #22c55e; }
 .qbtn.danger { background: rgba(239,68,68,.12); color: #ef4444; }
@@ -2596,6 +2602,15 @@ function toggleAccordion(key) {
   if (el) el.classList.toggle('open', next);
 }
 
+function toggleQuickHelp(key) {
+  const grid = document.getElementById('quick-help-' + key);
+  const btn = document.getElementById('quick-help-toggle-' + key);
+  if (!grid || !btn) return;
+  const next = !grid.classList.contains('show-help');
+  grid.classList.toggle('show-help', next);
+  btn.textContent = next ? '설명 숨기기' : '설명 보기';
+}
+
 function renderAccordionSection(key, index, title, subtitle, body, defaultOpen = false) {
   const open = getAccordionOpen(key, defaultOpen);
   return `
@@ -2665,7 +2680,8 @@ async function loadStatus() {
       </div>
       <div class="section">
         <div class="section-header"><h2>빠른 실행</h2></div>
-        <div class="quick-grid">
+        <div class="quick-help-toggle-wrap"><button class="quick-help-toggle" id="quick-help-toggle-status" onclick="toggleQuickHelp('status')">설명 보기</button></div>
+        <div class="quick-grid" id="quick-help-status">
           <button class="qbtn reload" onclick="loadStatus()"><span class="qbtn-label">새로고침</span><span class="qbtn-help">지금 화면 상태를 다시 불러옵니다</span></button>
           <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')"><span class="qbtn-label">상태 요약</span><span class="qbtn-help">예전처럼 상세 상태 결과를 바로 보여줍니다</span></button>
         </div>
@@ -2682,7 +2698,8 @@ async function loadStatus() {
       </div>
       <div class="section">
         <div class="section-header"><h2>진단 실행</h2></div>
-        <div class="quick-grid">
+        <div class="quick-help-toggle-wrap"><button class="quick-help-toggle" id="quick-help-toggle-diagnostics" onclick="toggleQuickHelp('diagnostics')">설명 보기</button></div>
+        <div class="quick-grid" id="quick-help-diagnostics">
           <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')"><span class="qbtn-label">연결 확인</span><span class="qbtn-help">이 주소가 밖에서도 열리는지 상세 결과를 보여줍니다</span></button>
           <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')"><span class="qbtn-label">문제 진단</span><span class="qbtn-help">터널과 연결 문제 원인을 더 자세히 봅니다</span></button>
           <button class="qbtn" onclick="openOpsDetail('브리지 로그', '/logs bridge 40', 'log')"><span class="qbtn-label">브리지 로그</span><span class="qbtn-help">미니앱 bridge 오류 기록을 상세히 봅니다</span></button>
@@ -2698,7 +2715,8 @@ async function loadStatus() {
       </div>
       <div class="section">
         <div class="section-header"><h2>복구 실행</h2></div>
-        <div class="quick-grid">
+        <div class="quick-help-toggle-wrap"><button class="quick-help-toggle" id="quick-help-toggle-recovery" onclick="toggleQuickHelp('recovery')">설명 보기</button></div>
+        <div class="quick-grid" id="quick-help-recovery">
           <button class="qbtn" onclick="checkConn(true)"><span class="qbtn-label">브리지 재확인</span><span class="qbtn-help">잠깐 끊긴 건지 먼저 다시 확인합니다</span></button>
           <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')"><span class="qbtn-label">문제 진단</span><span class="qbtn-help">바로 재시작하기 전에 원인을 상세히 봅니다</span></button>
           <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')"><span class="qbtn-label">브리지 재시작</span><span class="qbtn-help">미니앱 bridge만 다시 올립니다</span></button>
