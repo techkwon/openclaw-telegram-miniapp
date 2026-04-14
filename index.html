@@ -481,6 +481,13 @@ body {
 .terminal-alerts, .terminal-actions, .terminal-session-chips {
   display:flex; gap:6px; flex-wrap:wrap; padding: 10px 12px 12px;
 }
+.terminal-actions-block {
+  padding: 0 12px 12px;
+}
+.terminal-actions-label {
+  font-size: 10px; color: var(--hint); margin-bottom: 8px; font-weight: 700;
+  letter-spacing: .2px;
+}
 .terminal-pill {
   font-size: 10px; padding: 5px 8px; border-radius: 999px;
   background: rgba(255,255,255,.06); color: var(--hint);
@@ -2080,12 +2087,17 @@ function renderTerminalOverview() {
         <span class="terminal-pill ${(tasks.active || 0) > 0 ? 'info' : 'ok'}">active ${tasks.active || 0}</span>
         <span class="terminal-pill info">sessions ${sessions.count || 0}</span>
       </div>
-      <div class="terminal-actions">
-        <button class="terminal-action primary" onclick="quickCmd('/tunnel probe')">외부 probe</button>
-        <button class="terminal-action" onclick="quickCmd('/status')">상태 요약</button>
-        <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
-        <button class="terminal-action warn" onclick="quickCmd('/logs bridge 40')">브리지 로그</button>
-        ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
+      <div class="terminal-actions-block">
+        <div class="terminal-actions-label">원클릭 복구, 모두 안전한 읽기 전용 진단</div>
+        <div class="terminal-actions">
+          <button class="terminal-action primary" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 확인</button>
+          <button class="terminal-action primary" onclick="openOpsDetail('연결 확인', '/tunnel probe', 'status')">연결 확인</button>
+          <button class="terminal-action warn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>
+          <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 20', 'log')">브리지 로그</button>
+          <button class="terminal-action" onclick="checkConn(true)">브리지 재확인</button>
+          <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
+          ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
+        </div>
       </div>
     </div>
     ${lastErrorState ? `<div class="terminal-error-card"><div class="terminal-card-head"><div><div class="terminal-card-title">최근 오류</div><div class="terminal-card-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div><button class="terminal-action" onclick="switchTab('status')">자세히</button></div><div class="terminal-error-body">${esc(lastErrorState.message)}</div></div>` : ''}
