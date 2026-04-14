@@ -2566,6 +2566,26 @@ function getRecoveryHistoryComparison(items, index) {
   return { badgeClass: 'warn', badgeText: '악화', text: '이전엔 성공했지만 이번엔 실패했어요.' };
 }
 
+function getRecoveryHistoryStats(items, index) {
+  const item = items[index];
+  if (!item) return null;
+  const related = items.filter(v => (v.action || '') === (item.action || '') && (v.label || '') === (item.label || '')).slice(0, 5);
+  if (!related.length) return null;
+  const successCount = related.filter(v => !!v.ok).length;
+  const rate = Math.round((successCount / related.length) * 100);
+  const recent = related.slice(0, 3);
+  const trend = recent.every(v => v.ok)
+    ? { badgeClass: 'ok', badgeText: '안정', text: '최근 실행이 안정적으로 성공하고 있어요.' }
+    : recent.every(v => !v.ok)
+      ? { badgeClass: 'warn', badgeText: '불안정', text: '최근 실행이 계속 실패하고 있어요.' }
+      : { badgeClass: 'info', badgeText: '출렁임', text: '최근 결과가 성공과 실패 사이에서 흔들리고 있어요.' };
+  return {
+    rateBadge: `${rate}%`,
+    rateText: `최근 ${related.length}회 기준 성공 ${successCount}회`,
+    trend,
+  };
+}
+
 function renderRecoveryFailureSummary(items, compact = false) {
   const failures = items.filter(item => !item.ok).slice(0, compact ? 1 : 2);
   if (!failures.length) return '';
@@ -2602,6 +2622,7 @@ function renderRecoveryHistoryCard(compact = false) {
     const sourceIndex = items.indexOf(item);
     const busy = actionBusy && actionBusyKey === `${item.action || ''}::${item.label || ''}`;
     const comparison = getRecoveryHistoryComparison(items, sourceIndex);
+    const stats = getRecoveryHistoryStats(items, sourceIndex);
     return `
       <div class="recovery-history-item">
         <div class="recovery-history-top">
@@ -2612,9 +2633,12 @@ function renderRecoveryHistoryCard(compact = false) {
           <span class="mini-badge ${item.ok ? 'ok' : 'warn'}">${item.ok ? '성공' : '실패'}</span>
           <span class="mini-badge info">${esc(item.action || 'action')}</span>
           ${comparison ? `<span class="mini-badge ${comparison.badgeClass}">${esc(comparison.badgeText)}</span>` : ''}
+          ${stats ? `<span class="mini-badge info">성공률 ${esc(stats.rateBadge)}</span>` : ''}
+          ${stats ? `<span class="mini-badge ${stats.trend.badgeClass}">${esc(stats.trend.badgeText)}</span>` : ''}
         </div>
         <div class="recovery-history-result">${esc(item.summary || (item.ok ? '복구 작업이 완료됐어요' : '복구 작업이 실패했어요'))}</div>
         ${comparison ? `<div class="recovery-history-result">${esc(comparison.text)}</div>` : ''}
+        ${stats ? `<div class="recovery-history-result">${esc(stats.rateText)} · ${esc(stats.trend.text)}</div>` : ''}
         <div class="recovery-history-actions">
           <button class="recovery-history-btn warn" onclick="rerunRecoveryHistory(${sourceIndex})" ${busy || actionBusy ? 'disabled' : ''}>${busy ? '실행 중...' : '다시 실행'}</button>
           <button class="recovery-history-btn" onclick="openRecoveryHistoryDetail(${sourceIndex})" ${actionBusy ? 'disabled' : ''}>상세 보기</button>
