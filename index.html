@@ -762,11 +762,15 @@ body {
   padding: 6px 12px 10px;
 }
 .qbtn {
-  min-height: 44px; padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
+  min-height: 54px; padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
   border: none; cursor: pointer; font-family: inherit;
   background: rgba(79,70,229,.15); color: var(--accent);
   transition: background .15s;
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:4px;
+  text-align:left;
 }
+.qbtn-label { line-height: 1.2; }
+.qbtn-help { font-size: 9px; line-height: 1.25; color: var(--hint); font-weight: 500; opacity: .9; }
 .qbtn:active { opacity: .7; }
 .qbtn.reload { background: rgba(34,197,94,.12); color: #22c55e; }
 .qbtn.danger { background: rgba(239,68,68,.12); color: #ef4444; }
@@ -2650,71 +2654,51 @@ async function loadStatus() {
     const statusCheckBody = `
       <div class="section">
         <div class="section-header"><h2>지금 상태</h2></div>
-        <div class="item"><div class="item-label">OpenClaw 연결</div><div class="item-value ${gateway.reachable ? 'positive' : 'negative'}">${gateway.reachable ? '정상이에요' : '지금 연결이 불안정해요'}</div></div>
-        <div class="item"><div class="item-label">진행 중 작업</div><div class="item-value">${tasks.active ?? 0}개</div></div>
-        <div class="item"><div class="item-label">열려 있는 세션</div><div class="item-value">${sessions.count ?? 0}개</div></div>
-        <div class="item"><div class="item-label">최근 오류</div><div class="item-value ${lastErrorState ? 'negative' : 'positive'}">${lastErrorState ? '있어요' : '없어요'}</div></div>
-      </div>
-      <div class="section">
-        <div class="section-header"><h2>이 메뉴에서 할 수 있는 일</h2></div>
-        <div class="item"><div class="item-label">상태 요약</div><div class="item-value">지금 살아 있는지 전체 상태를 한 번에 봅니다</div></div>
-        <div class="item"><div class="item-label">새로고침</div><div class="item-value">방금 상태로 다시 확인합니다</div></div>
-        ${recent.length ? `<div class="item"><div class="item-label">최근 세션</div><div class="item-value">최근 사용한 세션 흐름도 같이 볼 수 있어요</div></div>` : ''}
+        <div class="item"><div class="item-label">OpenClaw 연결</div><div class="item-stack"><div class="item-value ${gateway.reachable ? 'positive' : 'negative'}">${gateway.reachable ? '정상이에요' : '지금 연결이 불안정해요'}</div><div class="item-sub">${gateway.reachable ? '명령을 보내거나 이미지를 붙여도 될 가능성이 높아요' : '복구 메뉴에서 브리지나 게이트웨이를 확인해 보세요'}</div></div></div>
+        <div class="item"><div class="item-label">진행 중 작업</div><div class="item-stack"><div class="item-value">${tasks.active ?? 0}개</div><div class="item-sub">지금 처리 중인 작업 수예요</div></div></div>
+        <div class="item"><div class="item-label">열려 있는 세션</div><div class="item-stack"><div class="item-value">${sessions.count ?? 0}개</div><div class="item-sub">계속 이어서 쓸 수 있는 세션 수예요</div></div></div>
+        <div class="item"><div class="item-label">최근 오류</div><div class="item-stack"><div class="item-value ${lastErrorState ? 'negative' : 'positive'}">${lastErrorState ? '있어요' : '없어요'}</div><div class="item-sub">${lastErrorState ? '진단 메뉴에서 원인을 더 볼 수 있어요' : '지금은 큰 오류 흔적이 없어요'}</div></div></div>
       </div>
       <div class="section">
         <div class="section-header"><h2>빠른 실행</h2></div>
         <div class="quick-grid">
-          <button class="qbtn reload" onclick="loadStatus()">새로고침</button>
-          <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 요약</button>
+          <button class="qbtn reload" onclick="loadStatus()"><span class="qbtn-label">새로고침</span><span class="qbtn-help">지금 화면 상태를 다시 불러옵니다</span></button>
+          <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')"><span class="qbtn-label">상태 요약</span><span class="qbtn-help">예전처럼 상세 상태 결과를 바로 보여줍니다</span></button>
         </div>
       </div>`;
 
     const diagnosticsBody = `
       <div class="section">
         <div class="section-header"><h2>어디가 막혔는지 보기</h2></div>
-        <div class="item"><div class="item-label">앱 내부 연결</div><div class="item-value ${diag?.gateway?.reachable ? 'positive' : 'negative'}">${diag?.gateway?.reachable ? '앱 안쪽은 정상이에요' : '앱 안쪽 연결이 흔들려요'}</div></div>
-        <div class="item"><div class="item-label">외부 접속</div><div class="item-value ${diag?.external_probe?.reachable ? 'positive' : 'negative'}">${diag?.external_probe?.configured ? (diag?.external_probe?.reachable ? '밖에서도 잘 열려요' : '밖에서 접속이 안 돼요') : '아직 확인 설정이 없어요'}</div></div>
-        <div class="item"><div class="item-label">터널 상태</div><div class="item-value ${(diag?.cloudflared?.launch_agent_running && (diag?.cloudflared?.matching_processes || 0) >= 1) ? 'positive' : 'negative'}">${diag?.cloudflared?.launch_agent_running ? '터널이 실행 중이에요' : '터널이 멈춰 있어요'}</div></div>
-        <div class="item"><div class="item-label">판단</div><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? '지금 접속 주소와 설정된 공개 주소가 달라 보여요' : '큰 주소 불일치는 없어 보여요'}</div></div>
+        <div class="item"><div class="item-label">앱 내부 연결</div><div class="item-stack"><div class="item-value ${diag?.gateway?.reachable ? 'positive' : 'negative'}">${diag?.gateway?.reachable ? '앱 안쪽은 정상이에요' : '앱 안쪽 연결이 흔들려요'}</div><div class="item-sub">OpenClaw 내부 연결 상태예요</div></div></div>
+        <div class="item"><div class="item-label">외부 접속</div><div class="item-stack"><div class="item-value ${diag?.external_probe?.reachable ? 'positive' : 'negative'}">${diag?.external_probe?.configured ? (diag?.external_probe?.reachable ? '밖에서도 잘 열려요' : '밖에서 접속이 안 돼요') : '아직 확인 설정이 없어요'}</div><div class="item-sub">브라우저나 public 주소 문제를 찾는 데 도움 됩니다</div></div></div>
+        <div class="item"><div class="item-label">터널 상태</div><div class="item-stack"><div class="item-value ${(diag?.cloudflared?.launch_agent_running && (diag?.cloudflared?.matching_processes || 0) >= 1) ? 'positive' : 'negative'}">${diag?.cloudflared?.launch_agent_running ? '터널이 실행 중이에요' : '터널이 멈춰 있어요'}</div><div class="item-sub">외부 접속을 안쪽 서비스로 이어주는 통로예요</div></div></div>
+        <div class="item"><div class="item-label">판단</div><div class="item-stack"><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? '지금 접속 주소와 설정된 공개 주소가 달라 보여요' : '큰 주소 불일치는 없어 보여요'}</div><div class="item-sub">여기서 어디부터 봐야 할지 감을 잡습니다</div></div></div>
         ${lastErrorState ? `<div class="item"><div class="item-label">최근 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>` : ''}
-      </div>
-      <div class="section">
-        <div class="section-header"><h2>진단 버튼 설명</h2></div>
-        <div class="item"><div class="item-label">연결 확인</div><div class="item-value">외부에서 이 미니앱 주소가 실제로 열리는지 확인합니다</div></div>
-        <div class="item"><div class="item-label">문제 진단</div><div class="item-value">터널과 연결 문제를 더 자세히 확인합니다</div></div>
-        <div class="item"><div class="item-label">브리지 로그</div><div class="item-value">미니앱 bridge 쪽 오류 기록을 봅니다</div></div>
-        <div class="item"><div class="item-label">심층 상태</div><div class="item-value">업데이트 꼬임이나 gateway 이상을 더 깊게 봅니다</div></div>
       </div>
       <div class="section">
         <div class="section-header"><h2>진단 실행</h2></div>
         <div class="quick-grid">
-          <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')">연결 확인</button>
-          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">문제 진단</button>
-          <button class="qbtn" onclick="openOpsDetail('브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
-          <button class="qbtn" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
+          <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')"><span class="qbtn-label">연결 확인</span><span class="qbtn-help">이 주소가 밖에서도 열리는지 상세 결과를 보여줍니다</span></button>
+          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')"><span class="qbtn-label">문제 진단</span><span class="qbtn-help">터널과 연결 문제 원인을 더 자세히 봅니다</span></button>
+          <button class="qbtn" onclick="openOpsDetail('브리지 로그', '/logs bridge 40', 'log')"><span class="qbtn-label">브리지 로그</span><span class="qbtn-help">미니앱 bridge 오류 기록을 상세히 봅니다</span></button>
+          <button class="qbtn" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')"><span class="qbtn-label">심층 상태</span><span class="qbtn-help">업데이트 꼬임이나 gateway 이상을 자세히 봅니다</span></button>
         </div>
       </div>`;
 
     const recoveryBody = `
       <div class="section">
-        <div class="section-header"><h2>복구 버튼 설명</h2></div>
-        <div class="item"><div class="item-label">브리지 재확인</div><div class="item-value">잠깐 끊겼는지 다시 확인합니다. 가장 가벼운 확인 버튼이에요</div></div>
-        <div class="item"><div class="item-label">브리지 재시작</div><div class="item-value">미니앱 bridge만 다시 올립니다. 보통 이걸 먼저 눌러보면 됩니다</div></div>
-        <div class="item"><div class="item-label">게이트웨이 재시작</div><div class="item-value">OpenClaw 전체 연결 축을 다시 시작합니다. 영향이 더 커요</div></div>
-        <div class="item"><div class="item-label">문제 진단</div><div class="item-value">바로 재시작하기 전에 원인을 먼저 보고 싶을 때 씁니다</div></div>
-      </div>
-      <div class="section">
-        <div class="section-header"><h2>추천 순서</h2></div>
-        <div class="item"><div class="item-label">가벼운 문제</div><div class="item-value">연결 확인 → 문제 진단 → 브리지 재시작</div></div>
-        <div class="item"><div class="item-label">업데이트 후 이상</div><div class="item-value">심층 상태 → 브리지 로그 → 게이트웨이 재시작</div></div>
+        <div class="section-header"><h2>복구는 이렇게 보면 됩니다</h2></div>
+        <div class="item"><div class="item-label">가벼운 문제</div><div class="item-stack"><div class="item-value">연결 확인 → 문제 진단 → 브리지 재시작</div><div class="item-sub">보통은 bridge 쪽만 다시 보면 해결되는 경우가 많아요</div></div></div>
+        <div class="item"><div class="item-label">업데이트 후 이상</div><div class="item-stack"><div class="item-value">심층 상태 → 브리지 로그 → 게이트웨이 재시작</div><div class="item-sub">gateway까지 꼬였는지 확인한 뒤 재시작합니다</div></div></div>
       </div>
       <div class="section">
         <div class="section-header"><h2>복구 실행</h2></div>
         <div class="quick-grid">
-          <button class="qbtn" onclick="checkConn(true)">브리지 재확인</button>
-          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">문제 진단</button>
-          <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
-          <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
+          <button class="qbtn" onclick="checkConn(true)"><span class="qbtn-label">브리지 재확인</span><span class="qbtn-help">잠깐 끊긴 건지 먼저 다시 확인합니다</span></button>
+          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')"><span class="qbtn-label">문제 진단</span><span class="qbtn-help">바로 재시작하기 전에 원인을 상세히 봅니다</span></button>
+          <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')"><span class="qbtn-label">브리지 재시작</span><span class="qbtn-help">미니앱 bridge만 다시 올립니다</span></button>
+          <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')"><span class="qbtn-label">게이트웨이 재시작</span><span class="qbtn-help">OpenClaw 연결 축 전체를 다시 시작합니다</span></button>
         </div>
       </div>`;
 
