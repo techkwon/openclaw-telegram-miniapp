@@ -667,6 +667,12 @@ body {
 .recovery-history-name { font-size: 11px; font-weight: 700; color: var(--text); }
 .recovery-history-meta { font-size: 10px; color: var(--hint); }
 .recovery-history-result { font-size: 10px; color: var(--hint); margin-top: 5px; line-height: 1.45; }
+.recovery-history-summary {
+  margin: 0 12px 10px; padding: 9px 10px; border-radius: 12px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.12);
+}
+.recovery-history-summary-title { font-size: 11px; font-weight: 700; color: #ef4444; }
+.recovery-history-summary-body { font-size: 10px; color: var(--hint); line-height: 1.45; margin-top: 4px; }
 .recovery-history-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top: 8px; }
 .recovery-history-btn {
   border:none; border-radius:999px; padding:6px 9px; cursor:pointer;
@@ -2560,6 +2566,18 @@ function getRecoveryHistoryComparison(items, index) {
   return { badgeClass: 'warn', badgeText: '악화', text: '이전엔 성공했지만 이번엔 실패했어요.' };
 }
 
+function renderRecoveryFailureSummary(items, compact = false) {
+  const failures = items.filter(item => !item.ok).slice(0, compact ? 1 : 2);
+  if (!failures.length) return '';
+  const text = failures.map(item => `${item.label || '복구 실행'} · ${fmtRecoveryTime(item.at)}`).join(' / ');
+  return `
+    <div class="recovery-history-summary">
+      <div class="recovery-history-summary-title">최근 실패 요약</div>
+      <div class="recovery-history-summary-body">${esc(text)}</div>
+    </div>
+  `;
+}
+
 function renderRecoveryHistoryCard(compact = false) {
   const items = recoveryHistory.length ? recoveryHistory : getRecoveryHistory();
   if (!items.length) return '';
@@ -2575,6 +2593,7 @@ function renderRecoveryHistoryCard(compact = false) {
           <div><div class="recovery-history-title">최근 복구 이력</div><div class="recovery-history-sub">실패만 보기 상태인데 아직 실패 이력이 없어요.</div></div>
           <div class="recovery-history-tools"><button class="recovery-history-btn" onclick="setRecoveryHistoryFilter('all')">전체 보기</button></div>
         </div>
+        ${renderRecoveryFailureSummary(items, compact)}
       </div>
     `;
   }
@@ -2608,6 +2627,7 @@ function renderRecoveryHistoryCard(compact = false) {
     return `
       <div class="terminal-error-card" style="margin:0 12px 12px">
         <div class="terminal-card-head"><div><div class="terminal-card-title">최근 복구 이력</div><div class="terminal-card-sub">${filter === 'fail' ? '실패한 복구만 보고 있어요' : '마지막으로 실행한 복구 결과예요'}</div></div><div class="recovery-history-tools"><button class="recovery-history-btn" onclick="setRecoveryHistoryFilter('${toggleMode}')">${toggleLabel}</button></div></div>
+        ${renderRecoveryFailureSummary(items, true)}
         <div class="recovery-history-list" style="padding-top:0">${body}</div>
       </div>
     `;
@@ -2619,6 +2639,7 @@ function renderRecoveryHistoryCard(compact = false) {
         <div><div class="recovery-history-title">최근 복구 이력</div><div class="recovery-history-sub">${filter === 'fail' ? '실패한 복구만 모아서 보고 있어요.' : '마지막에 어떤 복구를 했고 결과가 어땠는지 보여줍니다.'}</div></div>
         <div class="recovery-history-tools"><button class="recovery-history-btn" onclick="setRecoveryHistoryFilter('${toggleMode}')">${toggleLabel}</button></div>
       </div>
+      ${renderRecoveryFailureSummary(items, false)}
       <div class="recovery-history-list">${body}</div>
     </div>
   `;
