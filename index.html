@@ -2177,6 +2177,19 @@ async function loadTerminalOverview(silent = false) {
   }
 }
 
+function summarizeRecoverySnapshot(label, runtime, diag) {
+  const gateway = runtime?.gateway || {};
+  const probe = diag?.external_probe || {};
+  const cloud = diag?.cloudflared || {};
+  const lines = [`${label} 결과`];
+  lines.push(`• gateway: ${gateway.reachable ? 'online' : 'offline 또는 불안정'}`);
+  if (probe.configured) lines.push(`• public probe: ${probe.reachable ? 'ok' : 'fail'}${probe.status ? ` (HTTP ${probe.status})` : ''}`);
+  if (cloud.launch_agent_running != null) lines.push(`• cloudflared: ${cloud.launch_agent_running ? 'running' : 'stopped'}`);
+  if (gateway.reachable) lines.push('• 판단: OpenClaw 쪽은 다시 붙은 상태로 보여요. 이제 이미지 분석이나 명령 전송을 다시 시도해보세요.');
+  else lines.push('• 판단: 아직 복구가 덜 됐어요. 심층 상태와 브리지 로그를 먼저 보는 쪽이 좋습니다.');
+  return lines.join('\n');
+}
+
 async function runRecoveryAction(action, label) {
   if (actionBusy) return;
   const confirmed = window.confirm(`${label}을(를) 실행할까요? 서비스가 잠깐 끊길 수 있어요.`);
@@ -2189,12 +2202,25 @@ async function runRecoveryAction(action, label) {
       const lines = String(res.output).trim();
       if (lines) addMsg('system', `${label}\n${lines}`);
     }
-    await loadTerminalOverview(true);
+
+    const waitMs = action === 'restart_gateway' ? 2600 : 1400;
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+
+    try {
+      const runtime = await api('/api/runtime-status');
+      const diag = await api('/api/diagnostics').catch(() => ({}));
+      terminalSummary = { runtime, diag, at: Date.now() };
+      renderTerminalOverview();
+      addMsg('system', summarizeRecoverySnapshot(label, runtime, diag));
+    } catch (_) {
+      addMsg('system', `${label} 후 상태 재확인 실패\n• 판단: bridge 또는 gateway가 아직 다시 올라오는 중일 수 있어요.\n• 다음 액션: 잠깐 후 새로고침하거나 브리지 로그를 확인해 주세요.`);
+    }
+
     if (activeTab === 'status') loadStatus();
     setTimeout(() => { checkConn(); loadTerminalOverview(true); }, 1800);
   } catch (e) {
     rememberError(e.message, action);
-    addMsg('system', `${label} 실패: ${e.message}`);
+    addMsg('system', `${label} 실패: ${e.message}\n• 판단: bridge 자체가 죽었거나 로컬 openclaw 명령이 깨졌을 수 있어요.\n• 다음 액션: 심층 상태, 브리지 로그 순서로 보는 쪽이 좋습니다.`);
     toast(`${label} 실패`, 2200);
   } finally {
     actionBusy = false;
