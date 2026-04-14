@@ -193,6 +193,18 @@ body {
 }
 .run-cat-wrap.fast .run-cat-label { color: var(--accent); }
 .run-cat-wrap.offline .run-cat-label { color: var(--destructive); }
+.run-cat-wrap.online {
+  border-color: rgba(34,197,94,.18);
+  background: rgba(34,197,94,.08);
+}
+.run-cat-wrap.fast {
+  border-color: rgba(79,70,229,.18);
+  background: rgba(79,70,229,.10);
+}
+.run-cat-wrap.offline {
+  border-color: rgba(239,68,68,.16);
+  background: rgba(239,68,68,.08);
+}
 .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .conn-dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -405,12 +417,26 @@ body {
 .send-btn:disabled { opacity: .4; }
 .hidden-input { display: none; }
 .attach-preview {
-  display: flex; align-items: center; gap: 4px;
-  background: rgba(255,255,255,.08); border-radius: 8px;
-  padding: 3px 8px; max-width: 160px; overflow: hidden;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.08); border-radius: 12px;
+  padding: 6px 8px; max-width: 220px; overflow: hidden;
 }
+.attach-thumb {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+  overflow: hidden; flex-shrink: 0;
+  display:flex; align-items:center; justify-content:center;
+  color: var(--accent); font-size: 14px;
+}
+.attach-thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
+.attach-meta { min-width: 0; display:flex; flex-direction:column; gap:2px; }
 .attach-name {
   font-size: 11px; color: var(--accent); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.attach-sub {
+  font-size: 10px; color: var(--hint); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
 .attach-remove {
@@ -418,6 +444,71 @@ body {
   font-size: 12px; cursor: pointer; padding: 0 2px; flex-shrink: 0;
 }
 .attach-remove:hover { color: var(--destructive); }
+.attach-actions {
+  display:none; gap:6px; overflow-x:auto; padding: 0 10px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.attach-actions.visible { display:flex; }
+.attach-chip {
+  border:none; border-radius:999px; padding:7px 10px;
+  background: rgba(79,70,229,.14); color: var(--accent);
+  font-size:11px; white-space: nowrap; cursor:pointer;
+}
+.attach-hint {
+  padding: 0 10px 8px; font-size: 10px; color: var(--hint);
+  display:none;
+}
+.attach-hint.visible { display:block; }
+.terminal-overview {
+  display:none; flex-direction:column; gap:8px; padding: 0 10px 10px;
+}
+.terminal-overview.visible { display:flex; }
+.terminal-summary-card, .terminal-error-card, .terminal-fav-sessions {
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.04);
+  overflow: hidden;
+}
+.terminal-card-head {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding: 10px 12px 0;
+}
+.terminal-card-title {
+  font-size: 11px; font-weight: 700; color: var(--text); letter-spacing: .2px;
+}
+.terminal-card-sub {
+  font-size: 10px; color: var(--hint);
+}
+.terminal-alerts, .terminal-actions, .terminal-session-chips {
+  display:flex; gap:6px; flex-wrap:wrap; padding: 10px 12px 12px;
+}
+.terminal-pill {
+  font-size: 10px; padding: 5px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.06); color: var(--hint);
+}
+.terminal-pill.ok { color:#22c55e; background: rgba(34,197,94,.12); }
+.terminal-pill.warn { color:#f59e0b; background: rgba(245,158,11,.12); }
+.terminal-pill.error { color:#ef4444; background: rgba(239,68,68,.12); }
+.terminal-pill.info { color: var(--accent); background: rgba(79,70,229,.12); }
+.terminal-action {
+  border:none; border-radius: 10px; padding:8px 10px; cursor:pointer;
+  background: rgba(255,255,255,.06); color: var(--text); font-size:11px;
+}
+.terminal-action.primary { background: rgba(79,70,229,.16); color: var(--accent); }
+.terminal-action.warn { background: rgba(245,158,11,.12); color:#f59e0b; }
+.terminal-action.danger { background: rgba(239,68,68,.12); color:#ef4444; }
+.terminal-error-body {
+  padding: 8px 12px 12px; font-size: 11px; color: var(--text);
+  line-height: 1.45; white-space: pre-wrap;
+}
+.terminal-session-chip {
+  border:none; border-radius: 999px; padding:7px 10px; cursor:pointer;
+  background: rgba(255,255,255,.06); color: var(--text); font-size:11px;
+  max-width: 100%; display:inline-flex; align-items:center; gap:6px;
+}
+.terminal-session-chip strong { color:#f59e0b; }
+.terminal-drop-target {
+  box-shadow: 0 0 0 1px rgba(79,70,229,.38), 0 0 0 4px rgba(79,70,229,.12);
+}
 
 /* Composer target */
 .composer-target {
@@ -969,17 +1060,28 @@ body {
   </div>
   <div class="favorite-cmds" id="favorite-cmds"></div>
   <div class="recent-cmds" id="recent-cmds"></div>
-  <div class="chat-input-bar">
+  <div class="terminal-overview" id="terminal-overview"></div>
+  <div class="chat-input-bar" id="chat-input-bar">
     <button class="attach-btn" id="attach-btn" onclick="triggerAttach()" title="파일 첨부">&#128206;</button>
     <input type="file" id="file-input" class="hidden-input" accept="image/*,.pdf,.csv,.txt,.json" onchange="handleFileAttach(this)">
     <div class="attach-preview" id="attach-preview" style="display:none">
-      <span id="attach-name" class="attach-name"></span>
+      <div class="attach-thumb" id="attach-thumb">🖼️</div>
+      <div class="attach-meta">
+        <span id="attach-name" class="attach-name"></span>
+        <span id="attach-sub" class="attach-sub"></span>
+      </div>
       <button class="attach-remove" onclick="removeAttachment()" title="제거">&#10005;</button>
     </div>
     <textarea class="chat-input" id="chat-input" placeholder="메시지 또는 /명령어..." rows="1"
       oninput="onInputChange(this)" onkeydown="handleKey(event)"></textarea>
     <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9654;</button>
   </div>
+  <div class="attach-actions" id="attach-actions">
+    <button class="attach-chip" onclick="applyAttachmentPrompt('이 이미지가 무엇인지 한눈에 설명해줘.')">빠른 설명</button>
+    <button class="attach-chip" onclick="applyAttachmentPrompt('이미지 안의 글자를 읽어서 정리해줘.')">텍스트 추출</button>
+    <button class="attach-chip" onclick="applyAttachmentPrompt('이 화면에서 이상하거나 고칠 점을 찾아줘.')">문제 찾기</button>
+  </div>
+  <div class="attach-hint" id="attach-hint">이미지는 일반 프롬프트와 함께 분석돼요. 슬래시 명령과 같이 보내면 분석 모드로 바꿔서 보내는 편이 좋아요.</div>
 </div>
 
 <!-- STATUS -->
@@ -1122,14 +1224,15 @@ let _sessionStart = Date.now();
 let _durationTimer = null;
 let recentCommands = [];
 let lastErrorState = null;
+let terminalSummary = null;
 let runCatTimer = null;
 let runCatStep = 0;
 let runCatMode = 'idle';
 const RUN_CAT_FRAMES = {
-  idle: ['🐈', '🐾'],
-  online: ['🐈', '🐾', '🐈'],
-  fast: ['🐆', '💨', '🐆', '✨'],
-  offline: ['🐱', '💤']
+  idle: ['🦞', '🫧'],
+  online: ['🦞', '✨', '🦞'],
+  fast: ['🦞', '💨', '⚡', '🦞'],
+  offline: ['🦞', '💤']
 };
 const DEFAULT_FAVORITE_COMMANDS = ['/status', '/model', '/cron list', '/help'];
 
@@ -1350,12 +1453,15 @@ function initAfterAuth() {
   loadModelInfo();
   startDurationTimer();
   loadCommands();
+  loadTerminalOverview();
+  registerAttachmentInteractions();
   setRunCatMode('idle');
   addMsg('system', 'OpenClaw 터미널입니다. /help 를 입력하거나 메뉴에서 명령을 선택하세요.');
   input.focus();
   setInterval(async () => {
     if (activeTab === 'status') loadStatus();
     if (activeTab === 'cron') loadCron();
+    await loadTerminalOverview(true);
     await checkConn();
   }, 30000);
 }
@@ -1482,6 +1588,7 @@ function switchTab(t) {
   activeTab = t;
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x.dataset.panel === t));
   document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === t + '-panel'));
+  if (t === 'terminal') loadTerminalOverview(true);
   if (t === 'status') loadStatus();
   if (t === 'agents') loadAgents();
   if (t === 'sessions') loadSessions();
@@ -1704,9 +1811,11 @@ function toast(msg, duration = 3000, success = false) {
 }
 function rememberError(msg, kind = 'error') {
   lastErrorState = { kind, message: msg, at: Date.now() };
+  renderTerminalOverview();
 }
 function clearRememberedError() {
   lastErrorState = null;
+  renderTerminalOverview();
 }
 function clearLastErrorAndRefresh() {
   clearRememberedError();
@@ -1752,32 +1861,70 @@ function triggerAttach() {
   WebApp?.HapticFeedback?.impactOccurred('light');
 }
 
-function handleFileAttach(input) {
-  const file = input.files?.[0];
+function formatFileSize(bytes) {
+  if (!bytes) return '크기 미상';
+  if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB';
+  return bytes + ' B';
+}
+
+function applyAttachmentPrompt(text) {
+  if (!attachedImage) return;
+  input.value = text;
+  input.focus();
+  resize(input);
+}
+
+function attachFile(file) {
   if (!file) return;
   const supported = ['image/', 'application/pdf', 'text/', 'application/json', 'text/csv'];
-  if (!supported.some(t => file.type.startsWith(t))) {
+  const type = file.type || '';
+  if (!supported.some(t => type.startsWith(t) || type === t)) {
     toast('지원하지 않는 파일 형식입니다. 이미지, PDF, 텍스트 파일을 사용해 주세요.');
     return;
   }
   const reader = new FileReader();
   reader.onload = e => {
-    attachedImage = { data_url: e.target.result, name: file.name };
+    attachedImage = { data_url: e.target.result, name: file.name, type: file.type || '', size: file.size || 0 };
     updateAttachPreview();
-    toast('파일 첨부 완료: ' + file.name, 2000, true);
-    input.value = '';
+    toast('파일 첨부 완료: ' + file.name, 1800, true);
   };
   reader.readAsDataURL(file);
+}
+
+function handleFileAttach(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  attachFile(file);
+  input.value = '';
 }
 
 function updateAttachPreview() {
   const el = document.getElementById('attach-preview');
   const nameEl = document.getElementById('attach-name');
+  const subEl = document.getElementById('attach-sub');
+  const thumb = document.getElementById('attach-thumb');
+  const actions = document.getElementById('attach-actions');
+  const hint = document.getElementById('attach-hint');
   if (attachedImage) {
-    nameEl.textContent = '📎 ' + (attachedImage.name || 'file');
+    nameEl.textContent = attachedImage.name || 'file';
+    subEl.textContent = `${attachedImage.type || 'unknown'} · ${formatFileSize(attachedImage.size)}`;
+    if ((attachedImage.type || '').startsWith('image/')) {
+      thumb.innerHTML = `<img src="${attachedImage.data_url}" alt="attachment preview">`;
+      actions.classList.add('visible');
+      hint.classList.add('visible');
+    } else {
+      thumb.textContent = attachedImage.type === 'application/pdf' ? '📄' : '📎';
+      actions.classList.remove('visible');
+      hint.classList.remove('visible');
+    }
     el.style.display = 'flex';
   } else {
     el.style.display = 'none';
+    actions.classList.remove('visible');
+    hint.classList.remove('visible');
+    thumb.textContent = '🖼️';
+    thumb.innerHTML = '🖼️';
   }
 }
 
@@ -1785,6 +1932,36 @@ function removeAttachment() {
   attachedImage = null;
   updateAttachPreview();
   WebApp?.HapticFeedback?.impactOccurred('light');
+}
+
+function registerAttachmentInteractions() {
+  const panel = document.getElementById('terminal-panel');
+  const bar = document.getElementById('chat-input-bar');
+  if (!panel || panel.dataset.attachReady === '1') return;
+  panel.dataset.attachReady = '1';
+  input.addEventListener('paste', (event) => {
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find(item => item.type?.startsWith('image/'));
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+    attachFile(file);
+  });
+  ['dragenter', 'dragover'].forEach(type => panel.addEventListener(type, (event) => {
+    if (!Array.from(event.dataTransfer?.items || []).some(item => item.type?.startsWith('image/'))) return;
+    event.preventDefault();
+    bar.classList.add('terminal-drop-target');
+  }));
+  ['dragleave', 'dragend', 'drop'].forEach(type => panel.addEventListener(type, () => {
+    bar.classList.remove('terminal-drop-target');
+  }));
+  panel.addEventListener('drop', (event) => {
+    const file = Array.from(event.dataTransfer?.files || []).find(f => (f.type || '').startsWith('image/'));
+    if (!file) return;
+    event.preventDefault();
+    attachFile(file);
+  });
 }
 
 // ─── STREAMING STATE ──────────────────────────────────────────────────────
@@ -1864,6 +2041,73 @@ function updateContextBar() {
   pctEl.className = 'ctx-pct ' + cls;
 }
 
+function favoriteSessionQuickChip(key) {
+  return `<button class="terminal-session-chip" onclick='setComposerTarget(${JSON.stringify(key)}, ${JSON.stringify(key)})'><strong>★</strong>${esc(key)}</button>`;
+}
+
+function renderTerminalOverview() {
+  const wrap = document.getElementById('terminal-overview');
+  if (!wrap) return;
+  if (!terminalSummary) {
+    wrap.classList.remove('visible');
+    wrap.innerHTML = '';
+    return;
+  }
+  const runtime = terminalSummary.runtime || {};
+  const diag = terminalSummary.diag || {};
+  const gateway = runtime.gateway || {};
+  const tasks = runtime.tasks || {};
+  const sessions = runtime.sessions || {};
+  const probeFail = diag?.external_probe?.configured && diag?.external_probe?.reachable === false;
+  const favoriteKeys = getFavoriteSessionKeys().slice(0, 4);
+  const favoriteRecent = (sessions.recent || []).filter(s => favoriteKeys.includes(s.key || s.session_id)).slice(0, 4);
+  const favoriteHtml = favoriteRecent.length
+    ? favoriteRecent.map(s => `<button class="terminal-session-chip" onclick='setComposerTarget(${JSON.stringify(s.session_id || s.key || '')}, ${JSON.stringify(s.agent_id || s.key || 'session')})'><strong>★</strong>${esc(s.agent_id || 'session')} · ${esc(s.percent_used != null ? s.percent_used + '%' : 'ctx —')}</button>`).join('')
+    : favoriteKeys.map(favoriteSessionQuickChip).join('');
+  wrap.innerHTML = `
+    <div class="terminal-summary-card">
+      <div class="terminal-card-head">
+        <div>
+          <div class="terminal-card-title">운영 요약</div>
+          <div class="terminal-card-sub">터미널에서 바로 보고 바로 조치</div>
+        </div>
+        <button class="terminal-action primary" onclick="loadTerminalOverview()">새로고침</button>
+      </div>
+      <div class="terminal-alerts">
+        <span class="terminal-pill ${gateway.reachable ? 'ok' : 'error'}">gateway ${gateway.reachable ? 'online' : 'offline'}</span>
+        <span class="terminal-pill ${probeFail ? 'error' : 'info'}">probe ${probeFail ? 'fail' : 'ok'}</span>
+        <span class="terminal-pill ${(tasks.failures || 0) > 0 ? 'warn' : 'ok'}">failures ${tasks.failures || 0}</span>
+        <span class="terminal-pill ${(tasks.active || 0) > 0 ? 'info' : 'ok'}">active ${tasks.active || 0}</span>
+        <span class="terminal-pill info">sessions ${sessions.count || 0}</span>
+      </div>
+      <div class="terminal-actions">
+        <button class="terminal-action primary" onclick="quickCmd('/tunnel probe')">외부 probe</button>
+        <button class="terminal-action" onclick="quickCmd('/status')">상태 요약</button>
+        <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
+        <button class="terminal-action warn" onclick="quickCmd('/logs bridge 40')">브리지 로그</button>
+        ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
+      </div>
+    </div>
+    ${lastErrorState ? `<div class="terminal-error-card"><div class="terminal-card-head"><div><div class="terminal-card-title">최근 오류</div><div class="terminal-card-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div><button class="terminal-action" onclick="switchTab('status')">자세히</button></div><div class="terminal-error-body">${esc(lastErrorState.message)}</div></div>` : ''}
+    ${favoriteHtml ? `<div class="terminal-fav-sessions"><div class="terminal-card-head"><div><div class="terminal-card-title">즐겨찾기 세션</div><div class="terminal-card-sub">자주 보는 세션으로 바로 보내기</div></div><button class="terminal-action" onclick="switchTab('sessions')">세션 보기</button></div><div class="terminal-session-chips">${favoriteHtml}</div></div>` : ''}
+  `;
+  wrap.classList.add('visible');
+}
+
+async function loadTerminalOverview(silent = false) {
+  try {
+    const [runtime, diag] = await Promise.all([
+      api('/api/runtime-status'),
+      api('/api/diagnostics').catch(() => ({})),
+    ]);
+    terminalSummary = { runtime, diag, at: Date.now() };
+    renderTerminalOverview();
+  } catch (e) {
+    if (!silent) rememberError(e.message, 'terminal-overview');
+    renderTerminalOverview();
+  }
+}
+
 function startDurationTimer() {
   if (_durationTimer) return;
   _durationTimer = setInterval(() => {
@@ -1900,6 +2144,12 @@ async function sendMessage() {
   }
 
   if (text.startsWith('/')) {
+    if (attachedImage) {
+      toast('이미지 첨부는 일반 프롬프트 분석과 함께 쓰는 편이 좋아요. 아래 빠른 설명 칩을 눌러 바로 보낼 수 있어요.', 2600);
+      input.value = text;
+      resize(input);
+      return;
+    }
     saveRecentCommand(text);
     addMsg('user', text, null, { img: attachedImage?.data_url });
     attachedImage = null;
@@ -1932,6 +2182,10 @@ async function sendMessage() {
 
   // Composer-routed session send
   if (composerSessionTarget) {
+    if (attachedImage) {
+      toast('다른 세션으로 이미지를 보내는 연결은 아직 준비 중이에요. 현재 세션 분석용으로 먼저 쓰는 게 안전합니다.', 2600);
+      return;
+    }
     const routed = `/session send ${composerSessionTarget.target} ${text}`;
     addMsg('user', `↪ ${composerSessionTarget.label}\n${text}`, null, { img: attachedImage?.data_url });
     attachedImage = null;
@@ -3104,6 +3358,7 @@ async function init() {
 
   renderFavoriteCommands();
   renderRecentCommands();
+  registerAttachmentInteractions();
 
   // Browser mode: enforce token auth
   if (!isTelegram) {
@@ -3159,6 +3414,8 @@ async function init() {
     loadCommands();
     loadModelInfo();
     startDurationTimer();
+    loadTerminalOverview();
+    registerAttachmentInteractions();
 
     addMsg('system', 'OpenClaw 터미널입니다. /help 를 입력하거나 메뉴에서 명령을 선택하세요.');
     input.focus();
@@ -3166,6 +3423,7 @@ async function init() {
     setInterval(async () => {
       if (activeTab === 'status') loadStatus();
       if (activeTab === 'cron') loadCron();
+      await loadTerminalOverview(true);
       await checkConn();
     }, 30000);
   } catch(e) { console.error('[OpenClaw TUI] init error:', e); }
