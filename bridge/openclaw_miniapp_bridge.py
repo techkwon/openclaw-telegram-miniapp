@@ -46,6 +46,10 @@ AUTH_DEBUG = os.environ.get('MINIAPP_AUTH_DEBUG', '').strip().lower() in {'1', '
 DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
 TELEGRAM_ED25519_PUBLIC_KEY_PROD = bytes.fromhex('e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d')
+BRIDGE_LOG_PATH = Path(os.environ.get('MINIAPP_BRIDGE_LOG_PATH') or str(Path.home() / '.openclaw' / 'logs' / 'openclaw-miniapp-bridge.log'))
+BRIDGE_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_BRIDGE_ERR_LOG_PATH') or str(Path.home() / '.openclaw' / 'logs' / 'openclaw-miniapp-bridge.err.log'))
+CLOUDFLARED_OUT_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_OUT_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.out.log'))
+CLOUDFLARED_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_ERR_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.err.log'))
 
 COMMANDS = [
     {'name': 'help', 'description': '미니앱에서 지원하는 명령 보기', 'category': 'core'},
@@ -69,7 +73,26 @@ COMMANDS = [
     {'name': 'cron pause <id>', 'description': '크론 작업 일시중지', 'category': 'cron'},
     {'name': 'cron resume <id>', 'description': '크론 작업 재개', 'category': 'cron'},
     {'name': 'cron show <id>', 'description': '크론 작업 상세 보기', 'category': 'cron'},
+    {'name': 'tunnel status', 'description': 'Cloudflare tunnel 상태 요약 보기', 'category': 'ops'},
+    {'name': 'tunnel probe', 'description': 'public origin health probe 다시 확인', 'category': 'ops'},
+    {'name': 'tunnel logs [lines]', 'description': 'cloudflared 최근 로그 보기', 'category': 'ops'},
+    {'name': 'tunnel doctor', 'description': 'tunnel 문제 자동 진단', 'category': 'ops'},
+    {'name': 'logs bridge [lines]', 'description': 'bridge 최근 로그 보기', 'category': 'ops'},
+    {'name': 'logs tunnel [lines]', 'description': 'cloudflared 최근 로그 보기', 'category': 'ops'},
 ]
+
+ACTION_RUNNERS = {
+    'restart_bridge': {
+        'label': '브리지 재시작',
+        'command': ['launchctl', 'kickstart', '-k', f'gui/{os.getuid()}/ai.openclaw.miniapp-bridge'],
+        'success': '브리지 재시작을 요청했어요.',
+    },
+    'restart_gateway': {
+        'label': '게이트웨이 재시작',
+        'command': ['openclaw', 'gateway', 'restart'],
+        'success': 'OpenClaw 게이트웨이 재시작을 요청했어요.',
+    },
+}
 
 
 def json_response(handler, status, payload):
@@ -289,6 +312,29 @@ def _external_public_probe():
         }
 
 
+def _tail_text_file(path, lines=40):
+    path = Path(path)
+    if not path.exists():
+        return f'로그 파일이 없어요: {path}'
+    try:
+        content = path.read_text(errors='replace').splitlines()
+        tail = content[-max(1, min(lines, 200)):]
+        return '\n'.join(tail) if tail else '(로그 없음)'
+    except Exception as e:
+        return f'로그를 읽지 못했어요: {e}'
+
+
+def _parse_tail_lines(text, default=40):
+    text = (text or '').strip()
+    if not text:
+        return default
+    try:
+        value = int(text)
+        return max(5, min(value, 200))
+    except Exception:
+        return default
+
+
 def get_system_diagnostics():
     runtime = get_runtime_status()
     return {
@@ -313,6 +359,12 @@ def get_system_diagnostics():
         },
         'cloudflared': _cloudflared_launch_status(),
         'external_probe': _external_public_probe(),
+        'logs': {
+            'bridge_out': str(BRIDGE_LOG_PATH),
+            'bridge_err': str(BRIDGE_ERR_LOG_PATH),
+            'cloudflared_out': str(CLOUDFLARED_OUT_LOG_PATH),
+            'cloudflared_err': str(CLOUDFLARED_ERR_LOG_PATH),
+        },
     }
 
 
@@ -593,6 +645,69 @@ def commands_payload():
     }
 
 
+def _tunnel_status_payload():
+    diag = get_system_diagnostics()
+    return {
+        'public_origin': (diag.get('bridge') or {}).get('public_origin'),
+        'cloudflared': diag.get('cloudflared') or {},
+        'external_probe': diag.get('external_probe') or {},
+        'gateway': diag.get('gateway') or {},
+    }
+
+
+def _tunnel_doctor_text():
+    diag = get_system_diagnostics()
+    cloud = diag.get('cloudflared') or {}
+    probe = diag.get('external_probe') or {}
+    gateway = diag.get('gateway') or {}
+    lines = []
+    if not cloud.get('launch_agent_running'):
+        lines.append('판단: cloudflared LaunchAgent가 꺼져 있어요.')
+        lines.append('다음 확인: launchctl print gui/$(id -u)/com.cloudflare.cloudflared')
+    elif (cloud.get('matching_processes') or 0) > 1:
+        lines.append('판단: cloudflared tunnel 프로세스가 중복 실행 중이에요.')
+        lines.append('다음 확인: 수동 실행본을 정리하고 LaunchAgent 1개만 남기세요.')
+    elif probe.get('configured') and probe.get('reachable') is False:
+        detail = str(probe.get('detail') or '')
+        status = probe.get('status')
+        if '1010' in detail:
+            lines.append('판단: Cloudflare WAF/보안 규칙 차단 가능성이 높아요. (1010)')
+            lines.append('다음 확인: Cloudflare Security Events / WAF 규칙')
+        elif '1033' in detail or status == 530:
+            lines.append('판단: tunnel connector 또는 Public Hostname 연결 문제가 커 보여요. (1033/530)')
+            lines.append('다음 확인: Zero Trust Tunnel의 Public Hostname과 활성 connector 매핑')
+        else:
+            lines.append('판단: 외부 public origin 접속이 실패하고 있어요.')
+            lines.append('다음 확인: /tunnel logs, /logs bridge, public /health 응답')
+    elif gateway.get('reachable') is False:
+        lines.append('판단: Mini App bridge는 살아 있지만 OpenClaw Gateway 연결이 불안정해요.')
+        lines.append('다음 확인: /status, gateway 설정, gateway token/base url')
+    else:
+        lines.append('판단: 현재 tunnel/bridge/gateway 핵심 상태는 정상 쪽으로 보여요.')
+        lines.append('다음 확인: Telegram 내부 initData 인증이나 실제 사용 흐름 E2E 확인')
+    lines.append('')
+    lines.append('요약 상태:')
+    lines.append(json.dumps(_tunnel_status_payload(), ensure_ascii=False, indent=2))
+    return '\n'.join(lines)
+
+
+def run_named_action(action):
+    spec = ACTION_RUNNERS.get((action or '').strip())
+    if not spec:
+        raise RuntimeError('지원하지 않는 액션입니다.')
+    proc = subprocess.run(spec['command'], capture_output=True, text=True)
+    output = (proc.stdout or proc.stderr or '').strip()
+    if proc.returncode != 0:
+        raise RuntimeError(output or f"{spec['label']} 실행에 실패했습니다.")
+    return {
+        'ok': True,
+        'action': action,
+        'label': spec['label'],
+        'message': spec['success'],
+        'output': output,
+    }
+
+
 def command_output(command, args):
     full = (command or '').strip()
     if args:
@@ -663,6 +778,21 @@ def command_output(command, args):
     if normalized.startswith('cron show '):
         job_id = normalized.split(maxsplit=2)[-1]
         return json.dumps(get_job(job_id), ensure_ascii=False, indent=2)
+    if normalized in ('tunnel', 'tunnel status'):
+        return json.dumps(_tunnel_status_payload(), ensure_ascii=False, indent=2)
+    if normalized in ('tunnel probe',):
+        return json.dumps(_external_public_probe(), ensure_ascii=False, indent=2)
+    if normalized.startswith('tunnel logs'):
+        lines = _parse_tail_lines(normalized.replace('tunnel logs', '', 1).strip(), default=50)
+        return _tail_text_file(CLOUDFLARED_ERR_LOG_PATH, lines=lines)
+    if normalized in ('tunnel doctor',):
+        return _tunnel_doctor_text()
+    if normalized.startswith('logs bridge'):
+        lines = _parse_tail_lines(normalized.replace('logs bridge', '', 1).strip(), default=50)
+        return _tail_text_file(BRIDGE_ERR_LOG_PATH, lines=lines)
+    if normalized.startswith('logs tunnel'):
+        lines = _parse_tail_lines(normalized.replace('logs tunnel', '', 1).strip(), default=50)
+        return _tail_text_file(CLOUDFLARED_ERR_LOG_PATH, lines=lines)
     if normalized in ('subagents', 'subagents list'):
         return json.dumps(get_subagents(), ensure_ascii=False, indent=2)
     if normalized.startswith('subagents kill '):
@@ -1009,6 +1139,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/subagents':
                 session_id = self.headers.get('x-openclaw-session-id')
                 return json_response(self, 200, subagent_action(body, session_id=session_id))
+            if self.path == '/api/actions/run':
+                return json_response(self, 200, run_named_action(body.get('action')))
             if self.path == '/api/jobs':
                 created = create_job(body)
                 return json_response(self, 200, created)

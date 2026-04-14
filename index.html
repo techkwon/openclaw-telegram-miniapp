@@ -1232,6 +1232,7 @@ let _durationTimer = null;
 let recentCommands = [];
 let lastErrorState = null;
 let terminalSummary = null;
+let actionBusy = false;
 let runCatTimer = null;
 let runCatStep = 0;
 let runCatMode = 'idle';
@@ -2098,6 +2099,11 @@ function renderTerminalOverview() {
           <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
           ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
         </div>
+        <div class="terminal-actions-label">조치형 버튼, 클릭 시 실제 서비스 재시작</div>
+        <div class="terminal-actions">
+          <button class="terminal-action warn" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
+          <button class="terminal-action danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
+        </div>
       </div>
     </div>
     ${lastErrorState ? `<div class="terminal-error-card"><div class="terminal-card-head"><div><div class="terminal-card-title">최근 오류</div><div class="terminal-card-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div><button class="terminal-action" onclick="switchTab('status')">자세히</button></div><div class="terminal-error-body">${esc(lastErrorState.message)}</div></div>` : ''}
@@ -2117,6 +2123,30 @@ async function loadTerminalOverview(silent = false) {
   } catch (e) {
     if (!silent) rememberError(e.message, 'terminal-overview');
     renderTerminalOverview();
+  }
+}
+
+async function runRecoveryAction(action, label) {
+  if (actionBusy) return;
+  const confirmed = window.confirm(`${label}을(를) 실행할까요? 서비스가 잠깐 끊길 수 있어요.`);
+  if (!confirmed) return;
+  actionBusy = true;
+  try {
+    const res = await api('/api/actions/run', { method: 'POST', body: { action } });
+    toast(res.message || `${label} 실행 완료`, 2200, true);
+    if (res.output) {
+      const lines = String(res.output).trim();
+      if (lines) addMsg('system', `${label}\n${lines}`);
+    }
+    await loadTerminalOverview(true);
+    if (activeTab === 'status') loadStatus();
+    setTimeout(() => { checkConn(); loadTerminalOverview(true); }, 1800);
+  } catch (e) {
+    rememberError(e.message, action);
+    addMsg('system', `${label} 실패: ${e.message}`);
+    toast(`${label} 실패`, 2200);
+  } finally {
+    actionBusy = false;
   }
 }
 
