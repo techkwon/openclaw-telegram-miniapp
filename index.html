@@ -1280,7 +1280,14 @@ body {
         </div>
         <button class="settings-option-btn" id="settings-fullscreen-btn" onclick="toggleFullscreenFromSettings()">OFF</button>
       </div>
-      <div class="settings-note">Telegram SettingsButton과 연결된 설정 화면입니다.</div>
+      <div class="settings-option">
+        <div class="settings-option-main">
+          <div class="settings-option-title">복구 보호 레벨</div>
+          <div class="settings-option-sub">게이트웨이 재시작 전 보호 방식을 정합니다. off → confirm → biometric 순서로 바뀝니다.</div>
+        </div>
+        <button class="settings-option-btn" id="settings-recovery-guard-btn" onclick="cycleRecoveryGuardFromSettings()">confirm</button>
+      </div>
+      <div class="settings-note">Telegram SettingsButton과 연결된 설정 화면입니다. 가능한 항목은 Telegram 저장소에도 함께 보관합니다.</div>
     </div>
   </div>
 </div>
@@ -2772,36 +2779,71 @@ function toggleAccordion(key) {
   if (el) el.classList.toggle('open', next);
 }
 
+function getLocalPref(key, fallback = '') {
+  try {
+    const value = localStorage.getItem(key);
+    return value == null ? fallback : value;
+  } catch (_) { return fallback; }
+}
+
+function setLocalPref(key, value) {
+  try {
+    if (value == null) localStorage.removeItem(key);
+    else localStorage.setItem(key, String(value));
+  } catch (_) {}
+}
+
+async function syncPrefToCloud(key, value) {
+  if (!CS?.setItem) return;
+  try { await CS.setItem(key, String(value)); } catch (_) {}
+}
+
 function getStatusHelpOpen() {
-  try { return localStorage.getItem('openclaw_status_help') === '1'; } catch (_) { return false; }
+  return getLocalPref('openclaw_status_help', '0') === '1';
 }
 
 function setStatusHelpOpen(open) {
-  try { localStorage.setItem('openclaw_status_help', open ? '1' : '0'); } catch (_) {}
+  const value = open ? '1' : '0';
+  setLocalPref('openclaw_status_help', value);
+  syncPrefToCloud('openclaw_status_help', value);
 }
 
 function getFullscreenPreferred() {
-  try { return localStorage.getItem('openclaw_pref_fullscreen') === '1'; } catch (_) { return false; }
+  return getLocalPref('openclaw_pref_fullscreen', '0') === '1';
 }
 
 function setFullscreenPreferred(open) {
-  try { localStorage.setItem('openclaw_pref_fullscreen', open ? '1' : '0'); } catch (_) {}
+  const value = open ? '1' : '0';
+  setLocalPref('openclaw_pref_fullscreen', value);
+  syncPrefToCloud('openclaw_pref_fullscreen', value);
 }
 
 function getAdvancedInfoOpen() {
-  try { return localStorage.getItem('openclaw_show_advanced_info') === '1'; } catch (_) { return false; }
+  return getLocalPref('openclaw_show_advanced_info', '0') === '1';
 }
 
 function setAdvancedInfoOpen(open) {
-  try { localStorage.setItem('openclaw_show_advanced_info', open ? '1' : '0'); } catch (_) {}
+  const value = open ? '1' : '0';
+  setLocalPref('openclaw_show_advanced_info', value);
+  syncPrefToCloud('openclaw_show_advanced_info', value);
 }
 
 function getStartTabPreference() {
-  try { return localStorage.getItem('openclaw_start_tab') || 'terminal'; } catch (_) { return 'terminal'; }
+  return getLocalPref('openclaw_start_tab', 'terminal') || 'terminal';
 }
 
 function setStartTabPreference(tab) {
-  try { localStorage.setItem('openclaw_start_tab', tab); } catch (_) {}
+  setLocalPref('openclaw_start_tab', tab);
+  syncPrefToCloud('openclaw_start_tab', tab);
+}
+
+function getRecoveryGuardLevel() {
+  return getLocalPref('openclaw_recovery_guard', 'confirm') || 'confirm';
+}
+
+function setRecoveryGuardLevel(level) {
+  setLocalPref('openclaw_recovery_guard', level);
+  syncPrefToCloud('openclaw_recovery_guard', level);
 }
 
 function toggleStatusHelp() {
@@ -2843,10 +2885,12 @@ function syncSettingsModalState() {
   const advancedBtn = document.getElementById('settings-advanced-btn');
   const startTabBtn = document.getElementById('settings-start-tab-btn');
   const fullscreenBtn = document.getElementById('settings-fullscreen-btn');
+  const recoveryGuardBtn = document.getElementById('settings-recovery-guard-btn');
   const helpOpen = getStatusHelpOpen();
   const advancedOpen = getAdvancedInfoOpen();
   const startTab = getStartTabPreference();
   const fullscreenOpen = getFullscreenPreferred();
+  const recoveryGuard = getRecoveryGuardLevel();
   if (helpBtn) {
     helpBtn.textContent = helpOpen ? 'ON' : 'OFF';
     helpBtn.classList.toggle('active', helpOpen);
@@ -2862,6 +2906,10 @@ function syncSettingsModalState() {
   if (fullscreenBtn) {
     fullscreenBtn.textContent = fullscreenOpen ? 'ON' : 'OFF';
     fullscreenBtn.classList.toggle('active', fullscreenOpen);
+  }
+  if (recoveryGuardBtn) {
+    recoveryGuardBtn.textContent = recoveryGuard;
+    recoveryGuardBtn.classList.add('active');
   }
 }
 
@@ -2900,6 +2948,16 @@ function cycleStartTabFromSettings() {
   toast(`기본 시작 탭: ${next}`, 1400, true);
 }
 
+function cycleRecoveryGuardFromSettings() {
+  const levels = ['off', 'confirm', 'biometric'];
+  const current = getRecoveryGuardLevel();
+  const index = levels.indexOf(current);
+  const next = levels[(index + 1 + levels.length) % levels.length];
+  setRecoveryGuardLevel(next);
+  syncSettingsModalState();
+  toast(`복구 보호: ${next}`, 1400, true);
+}
+
 async function toggleFullscreenFromSettings() {
   await toggleFullscreenPreference();
   syncSettingsModalState();
@@ -2932,6 +2990,11 @@ async function ensureBiometricReady() {
 }
 
 async function requireBiometricForGatewayRestart() {
+  const guard = getRecoveryGuardLevel();
+  if (guard === 'off') return true;
+  if (guard === 'confirm') {
+    return window.confirm('게이트웨이를 재시작할까요? 영향 범위가 더 큰 복구 작업입니다.');
+  }
   const bio = WebApp?.BiometricManager;
   if (!bio) return true;
   const available = await ensureBiometricReady();
@@ -3939,9 +4002,28 @@ window.cmdList = [
 window.addEventListener('online', () => setConn('online'));
 window.addEventListener('offline', () => setConn('offline', '브라우저 네트워크가 끊겼어요'));
 
+async function loadCloudBackedPreferences() {
+  if (!CS?.getItem) return;
+  const keys = [
+    'openclaw_status_help',
+    'openclaw_pref_fullscreen',
+    'openclaw_show_advanced_info',
+    'openclaw_start_tab',
+    'openclaw_recovery_guard',
+  ];
+  for (const key of keys) {
+    try {
+      const value = await CS.getItem(key);
+      if (value != null && value !== '') setLocalPref(key, value);
+    } catch (_) {}
+  }
+}
+
 async function init() {
   // Detect context: inside Telegram (has initData) vs open browser
   isTelegram = !!(WebApp?.initData);
+
+  await loadCloudBackedPreferences();
 
   renderFavoriteCommands();
   renderRecentCommands();
