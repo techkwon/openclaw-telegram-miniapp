@@ -687,6 +687,20 @@ body {
   font-size: 9px; padding: 2px 7px; border-radius: 8px;
   background: var(--btn); color: var(--btn-text); font-weight: 600;
 }
+.accordion-section { margin: 0 14px 10px; background: var(--section-bg); border-radius: 14px; overflow: hidden; }
+.accordion-header {
+  width: 100%; border: none; background: transparent; color: inherit; cursor: pointer;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding: 12px 14px; text-align:left;
+}
+.accordion-title-wrap { display:flex; align-items:center; gap:8px; min-width:0; }
+.accordion-index { font-size: 11px; font-weight: 800; color: var(--accent); }
+.accordion-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.accordion-sub { font-size: 10px; color: var(--hint); margin-top: 2px; }
+.accordion-chevron { font-size: 14px; color: var(--hint); transition: transform .15s ease; }
+.accordion-section.open .accordion-chevron { transform: rotate(180deg); }
+.accordion-body { display:none; border-top:1px solid rgba(255,255,255,.04); }
+.accordion-section.open .accordion-body { display:block; }
 
 /* Gauge items */
 .gauge-row { padding: 8px 14px; border-top: 1px solid rgba(255,255,255,.04); }
@@ -2508,6 +2522,44 @@ function sessionIdText(value) {
   return String(value);
 }
 
+function getAccordionOpen(key, defaultOpen = false) {
+  try {
+    const raw = localStorage.getItem('openclaw_accordion_' + key);
+    if (raw == null) return defaultOpen;
+    return raw === '1';
+  } catch (_) { return defaultOpen; }
+}
+
+function setAccordionOpen(key, open) {
+  try { localStorage.setItem('openclaw_accordion_' + key, open ? '1' : '0'); } catch (_) {}
+}
+
+function toggleAccordion(key) {
+  const next = !getAccordionOpen(key, true);
+  setAccordionOpen(key, next);
+  const el = document.getElementById('accordion-' + key);
+  if (el) el.classList.toggle('open', next);
+}
+
+function renderAccordionSection(key, index, title, subtitle, body, defaultOpen = false) {
+  const open = getAccordionOpen(key, defaultOpen);
+  return `
+    <div class="accordion-section ${open ? 'open' : ''}" id="accordion-${key}">
+      <button class="accordion-header" onclick="toggleAccordion('${key}')">
+        <div class="accordion-title-wrap">
+          <div class="accordion-index">${index}</div>
+          <div>
+            <div class="accordion-title">${title}</div>
+            <div class="accordion-sub">${subtitle}</div>
+          </div>
+        </div>
+        <div class="accordion-chevron">⌄</div>
+      </button>
+      <div class="accordion-body">${body}</div>
+    </div>
+  `;
+}
+
 // ─── STATUS ────────────────────────────────────────────────────────────────
 async function loadStatus() {
   const bar = document.getElementById('status-bar');
@@ -2544,8 +2596,7 @@ async function loadStatus() {
       ? `<div class="status-alert ${has1010 ? 'warn' : ''}"><div class="status-alert-title">${has1010 ? 'Cloudflare 보안 차단 감지' : has1033 ? 'Cloudflare Tunnel 연결 문제 감지' : '외부 접속 이상 감지'}</div><div class="status-alert-body">${has1010 ? '현재 외부 요청이 Cloudflare 보안 규칙(1010)에 막히고 있어요. WAF / Security Events를 확인해 주세요.' : has1033 ? 'hostname이 현재 tunnel connector에 제대로 붙지 않았어요. Public Hostname과 tunnel 연결을 다시 확인해 주세요.' : '브리지 내부는 살아있지만 외부 public origin 접속이 실패하고 있어요. Cloudflare 쪽 상태를 확인해 주세요.'}</div></div>`
       : '';
 
-    content.innerHTML = `
-      ${alertHtml}
+    const statusCheckBody = `
       <div class="section">
         <div class="section-header"><h2>OpenClaw 런타임</h2></div>
         <div class="item"><div class="item-label">버전</div><div class="item-value">${esc(s.runtime_version || '—')}</div></div>
@@ -2553,35 +2604,25 @@ async function loadStatus() {
         <div class="item"><div class="item-label">Gateway URL</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(gateway.url || '—')}</div></div>
         <div class="item"><div class="item-label">서비스</div><div class="item-value">${esc(gateway.service || '—')}</div></div>
       </div>
-
       <div class="section">
         <div class="section-header"><h2>작업 및 세션</h2></div>
         <div class="item"><div class="item-label">활성 작업</div><div class="item-value">${tasks.active ?? 0}</div></div>
         <div class="item"><div class="item-label">실패 누적</div><div class="item-value">${tasks.failures ?? 0}</div></div>
         <div class="item"><div class="item-label">전체 세션</div><div class="item-value">${sessions.count ?? 0}</div></div>
         <div class="item"><div class="item-label">활성 heartbeat agent</div><div class="item-value">${activeAgents.length}</div></div>
-        ${processes.length ? `
-          <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-            <div class="item" style="margin-bottom:4px"><div class="item-label">최근 세션</div><div class="item-value">${processes.length}</div></div>
-            <div class="process-list">
-              ${processes.slice(0, 8).map(p => `
-                <div class="process-row">
-                  <div class="proc-dot ${p.running ? 'running' : 'stopped'}"></div>
-                  <div class="proc-name">${esc(p.name || p.pid || '?')}</div>
-                  <div class="proc-meta">${esc(p.model || p.kind || '')}${p.tokens ? ' · ' + _fmtTokens(p.tokens) + ' tok' : ''}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>` : ''}
+        ${recent.length ? recent.map(r => `<div class="item"><div class="item-label">${esc(r.agent_id || 'agent')}</div><div class="item-value">${esc(r.model || '—')} · ${r.percent_used != null ? r.percent_used + '%' : 'ctx —'}</div></div>`).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
       </div>
-
       <div class="section">
-        <div class="section-header"><h2>최근 세션 상세</h2></div>
-        ${recent.length ? recent.map(r => `
-          <div class="item"><div class="item-label">${esc(r.agent_id || 'agent')}</div><div class="item-value">${esc(r.model || '—')} · ${r.percent_used != null ? r.percent_used + '%' : 'ctx —'}</div></div>
-        `).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
-      </div>
+        <div class="section-header"><h2>빠른 실행</h2></div>
+        <div class="quick-grid">
+          <button class="qbtn reload" onclick="loadStatus()">새로고침</button>
+          <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 요약</button>
+          <button class="qbtn" onclick="quickCmd('/model')">모델</button>
+          <button class="qbtn" onclick="quickCmd('/help')">도움말</button>
+        </div>
+      </div>`;
 
+    const diagnosticsBody = `
       <div class="section">
         <div class="section-header"><h2>접속 진단</h2></div>
         <div class="item"><div class="item-label">Public origin</div><div class="item-value">${diag?.bridge?.public_origin_configured ? esc(diag.bridge.public_origin) : '미설정'}</div></div>
@@ -2595,39 +2636,21 @@ async function loadStatus() {
         <div class="item"><div class="item-label">Ed25519 검증</div><div class="item-value">${diag?.auth?.ed25519_available ? '사용 가능' : '미사용'}</div></div>
         <div class="item"><div class="item-label">Fallback Bearer</div><div class="item-value">${diag?.auth?.shared_token_configured ? '설정됨' : '없음'}</div></div>
         <div class="item"><div class="item-label">판단</div><div class="item-value ${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'negative' : 'positive'}">${diag?.bridge?.public_origin && diag.bridge.public_origin !== window.location.origin ? 'public origin 불일치' : '브리지 기준 정상'}</div></div>
-        ${lastErrorState ? `<div class="item"><div class="item-label">마지막 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>
-        <div class="item"><div class="item-label">오류 상태</div><div class="item-value"><button class="qbtn reload" style="padding:6px 10px;font-size:11px" onclick="clearLastErrorAndRefresh()">오류 지우기</button></div></div>` : `<div class="item"><div class="item-label">마지막 오류</div><div class="item-value positive">없음</div></div>`}
+        ${lastErrorState ? `<div class="item"><div class="item-label">마지막 오류</div><div class="item-stack"><div class="item-value negative" style="white-space:pre-wrap;text-align:right">${esc(lastErrorState.message)}</div><div class="item-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div></div>` : `<div class="item"><div class="item-label">마지막 오류</div><div class="item-value positive">없음</div></div>`}
       </div>
-
       <div class="section">
-        <div class="section-header"><h2>채널 및 디버그</h2></div>
-        <div class="item"><div class="item-label">모델</div><div class="item-value">${_modelInfo ? esc(_modelInfo.model_short) + ' <span style="color:var(--hint)">via ' + esc(_modelInfo.provider || '?') + '</span>' : '—'}</div></div>
-        <div class="item"><div class="item-label">컨텍스트</div><div class="item-value">${_modelInfo?.context_length ? _fmtTokens(_sessionUsage.prompt_tokens) + ' / ' + _fmtTokens(_modelInfo.context_length) + ' 사용 중' : '—'}</div></div>
-        <div class="item"><div class="item-label">세션 토큰</div><div class="item-value">${_sessionUsage.total_tokens ? _fmtTokens(_sessionUsage.total_tokens) : '0'}</div></div>
-        <div class="item"><div class="item-label">인증 방식</div><div class="item-value">${isTelegram ? 'Telegram initData' : apiToken ? 'Bearer token' : '없음'}</div></div>
-        <div class="item"><div class="item-label">사용자</div><div class="item-value">${WebApp?.initDataUnsafe?.user ? esc(WebApp.initDataUnsafe.user.first_name) + ' (id: ' + WebApp.initDataUnsafe.user.id + ')' : userId || '—'}</div></div>
-        <div class="item"><div class="item-label">세션 ID</div><div class="item-value" style="font-size:10px;word-break:break-all">${esc(sessionIdText(sessionId))}</div></div>
-        ${channels.length ? `<div class="item"><div class="item-label">채널</div><div class="item-value" style="white-space:pre-wrap;text-align:right">${esc(channels.slice(0, 12).join('\n'))}</div></div>` : ''}
-      </div>
-
-      <div class="section">
-        <div class="section-header"><h2>빠른 실행</h2></div>
+        <div class="section-header"><h2>진단 실행</h2></div>
         <div class="quick-grid">
-          <button class="qbtn reload" onclick="loadStatus()">새로고침</button>
-          <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 요약</button>
           <button class="qbtn" onclick="openOpsDetail('터널 상태', '/tunnel status', 'status')">터널 상태</button>
           <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')">외부 probe</button>
           <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">터널 진단</button>
           <button class="qbtn" onclick="openOpsDetail('터널 로그', '/logs tunnel 40', 'log')">터널 로그</button>
           <button class="qbtn" onclick="openOpsDetail('브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
-          <button class="qbtn" onclick="openOpsDetail('세션 목록', '/sessions list', 'text')">세션 목록</button>
-          <button class="qbtn" onclick="quickCmd('/cron list')">크론 작업</button>
-          <button class="qbtn" onclick="quickCmd('/model')">모델</button>
-          <button class="qbtn" onclick="quickCmd('/help')">도움말</button>
-          <button class="qbtn" onclick="quickCmdWithPrompt('/session new', '새 세션에 보낼 첫 메시지를 입력하세요')">새 세션</button>
+          <button class="qbtn" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
         </div>
-      </div>
+      </div>`;
 
+    const recoveryBody = `
       <div class="section">
         <div class="section-header"><h2>조치형 복구</h2></div>
         <div class="item"><div class="item-label">안내</div><div class="item-value">실행 시 서비스가 잠깐 끊길 수 있어요</div></div>
@@ -2638,7 +2661,6 @@ async function loadStatus() {
           ${lastErrorState ? `<button class="qbtn" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : `<button class="qbtn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>`}
         </div>
       </div>
-
       <div class="section">
         <div class="section-header"><h2>업데이트 실패 복구 모드</h2></div>
         <div class="item"><div class="item-label">권장 순서</div><div class="item-value">심층 상태 확인 → 로그 확인 → 게이트웨이 재시작</div></div>
@@ -2649,7 +2671,6 @@ async function loadStatus() {
           <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
         </div>
       </div>
-
       <div class="section">
         <div class="section-header"><h2>최후 복구 가이드</h2></div>
         <div class="item"><div class="item-label">언제 쓰나</div><div class="item-value">bridge까지 죽어서 이 미니앱 버튼도 안 먹을 때</div></div>
@@ -2667,8 +2688,13 @@ async function loadStatus() {
           <button class="qbtn" onclick='copyText("openclaw gateway status --deep", "gateway status 복사")'>gateway status 복사</button>
           <button class="qbtn danger" onclick='copyText("openclaw gateway restart", "gateway restart 복사")'>gateway restart 복사</button>
         </div>
-        <div class="item"><div class="item-label">판단</div><div class="item-value">이 미니앱은 OpenClaw가 죽었을 때 복구 콘솔 역할을 하지만, bridge까지 같이 죽으면 결국 로컬 명령으로 한 번 살려야 해요.</div></div>
-      </div>
+      </div>`;
+
+    content.innerHTML = `
+      ${alertHtml}
+      ${renderAccordionSection('status-check', '1', '상태 확인', 'OpenClaw 상태와 핵심 세션 요약', statusCheckBody, true)}
+      ${renderAccordionSection('diagnostics', '2', '진단', '터널, bridge, gateway 이상 여부 확인', diagnosticsBody, false)}
+      ${renderAccordionSection('recovery', '3', '복구', '재시작과 최후 복구 가이드', recoveryBody, false)}
     `;
   } catch (e) {
     rememberError(e.message, 'status');
