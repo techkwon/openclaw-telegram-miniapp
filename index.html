@@ -601,6 +601,40 @@ body {
   display:flex; align-items:center; justify-content:center; border-radius:12px;
 }
 .detail-modal-body { flex:1; overflow-y:auto; padding: 12px 14px 18px; }
+.settings-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 82;
+  display:none; align-items:flex-end;
+}
+.settings-modal-overlay.open { display:flex; }
+.settings-modal {
+  width: 100%; max-height: 76vh; background: var(--sec-bg);
+  border-top-left-radius: 18px; border-top-right-radius: 18px;
+  border-top: 1px solid var(--border); overflow: hidden;
+  display:flex; flex-direction:column;
+}
+.settings-modal-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+}
+.settings-modal-title { font-size: 13px; font-weight: 700; }
+.settings-modal-close {
+  width: 44px; height: 44px; border:none; background:none; color: var(--hint); font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; border-radius:12px;
+}
+.settings-modal-body { padding: 12px 14px 18px; display:flex; flex-direction:column; gap:10px; }
+.settings-option {
+  background: var(--section-bg); border:1px solid var(--border); border-radius: 14px;
+  padding: 12px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+}
+.settings-option-main { min-width:0; }
+.settings-option-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.settings-option-sub { font-size: 10px; color: var(--hint); margin-top: 4px; line-height: 1.45; }
+.settings-option-btn {
+  border:none; border-radius:999px; min-width:58px; padding:7px 10px; cursor:pointer;
+  background: rgba(255,255,255,.08); color: var(--hint); font-size:10px; font-weight:700;
+}
+.settings-option-btn.active { background: rgba(79,70,229,.18); color: var(--accent); }
+.settings-note { font-size: 10px; color: var(--hint); line-height: 1.45; padding: 2px 2px 0; }
 .detail-tabs { display:flex; gap:6px; padding: 0 0 12px; flex-wrap:wrap; }
 .detail-tab { min-height:40px; padding:9px 12px; border:none; border-radius:999px; font-size:11px; font-weight:700; background: rgba(255,255,255,.06); color: var(--hint); cursor:pointer; }
 .detail-tab.active { background: rgba(79,70,229,.18); color: var(--accent); }
@@ -1207,6 +1241,33 @@ body {
       <button class="detail-modal-close" onclick="closeDetailModal()">✕</button>
     </div>
     <div class="detail-modal-body" id="detail-modal-body"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="settings-modal-overlay" id="settings-modal-overlay" onclick="closeSettingsModal(event)">
+  <div class="settings-modal" onclick="event.stopPropagation()">
+    <div class="settings-modal-header">
+      <div class="settings-modal-title">미니앱 설정</div>
+      <button class="settings-modal-close" onclick="closeSettingsModal()">✕</button>
+    </div>
+    <div class="settings-modal-body">
+      <div class="settings-option">
+        <div class="settings-option-main">
+          <div class="settings-option-title">설명 모드</div>
+          <div class="settings-option-sub">상태 탭의 회색 안내와 버튼 설명을 한 번에 켜고 끕니다.</div>
+        </div>
+        <button class="settings-option-btn" id="settings-help-btn" onclick="toggleStatusHelpFromSettings()">OFF</button>
+      </div>
+      <div class="settings-option">
+        <div class="settings-option-main">
+          <div class="settings-option-title">전체화면 선호</div>
+          <div class="settings-option-sub">가능한 기기에서는 다음 진입 때 Telegram 전체화면을 다시 요청합니다.</div>
+        </div>
+        <button class="settings-option-btn" id="settings-fullscreen-btn" onclick="toggleFullscreenFromSettings()">OFF</button>
+      </div>
+      <div class="settings-note">Telegram SettingsButton과 연결된 설정 화면입니다.</div>
+    </div>
   </div>
 </div>
 
@@ -2747,24 +2808,48 @@ async function toggleFullscreenPreference() {
   }
 }
 
+function syncSettingsModalState() {
+  const helpBtn = document.getElementById('settings-help-btn');
+  const fullscreenBtn = document.getElementById('settings-fullscreen-btn');
+  const helpOpen = getStatusHelpOpen();
+  const fullscreenOpen = getFullscreenPreferred();
+  if (helpBtn) {
+    helpBtn.textContent = helpOpen ? 'ON' : 'OFF';
+    helpBtn.classList.toggle('active', helpOpen);
+  }
+  if (fullscreenBtn) {
+    fullscreenBtn.textContent = fullscreenOpen ? 'ON' : 'OFF';
+    fullscreenBtn.classList.toggle('active', fullscreenOpen);
+  }
+}
+
+function openSettingsModal() {
+  syncSettingsModalState();
+  document.getElementById('settings-modal-overlay').classList.add('open');
+}
+
+function closeSettingsModal(event) {
+  if (event && event.target !== document.getElementById('settings-modal-overlay')) return;
+  document.getElementById('settings-modal-overlay').classList.remove('open');
+}
+
+function toggleStatusHelpFromSettings() {
+  if (activeTab !== 'status') switchTab('status');
+  toggleStatusHelp();
+  syncSettingsModalState();
+  toast(getStatusHelpOpen() ? '설명 모드를 켰어요' : '설명 모드를 껐어요', 1400, true);
+}
+
+async function toggleFullscreenFromSettings() {
+  await toggleFullscreenPreference();
+  syncSettingsModalState();
+}
+
 async function handleSettingsButton() {
   if (activeTab !== 'status') {
     switchTab('status');
-    return;
   }
-  const action = window.prompt('설정: help / fullscreen', getStatusHelpOpen() ? 'help' : 'fullscreen');
-  if (!action) return;
-  const normalized = action.trim().toLowerCase();
-  if (normalized === 'help') {
-    toggleStatusHelp();
-    toast(getStatusHelpOpen() ? '설명 모드를 켰어요' : '설명 모드를 껐어요', 1400, true);
-    return;
-  }
-  if (normalized === 'fullscreen') {
-    await toggleFullscreenPreference();
-    return;
-  }
-  toast('help 또는 fullscreen 을 입력해 주세요', 1800, false);
+  openSettingsModal();
 }
 
 async function ensureBiometricReady() {
