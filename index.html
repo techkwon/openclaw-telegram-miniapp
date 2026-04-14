@@ -2653,6 +2653,10 @@ async function loadStatus() {
 
     const statusCheckBody = `
       <div class="section">
+        <div class="section-header"><h2>이럴 때 보세요</h2></div>
+        <div class="item"><div class="item-label">추천 상황</div><div class="item-stack"><div class="item-value accent">지금 OpenClaw가 살아 있는지 먼저 확인하고 싶을 때</div><div class="item-sub">가장 먼저 보는 기본 점검 메뉴예요</div></div></div>
+      </div>
+      <div class="section">
         <div class="section-header"><h2>지금 상태</h2></div>
         <div class="item"><div class="item-label">OpenClaw 연결</div><div class="item-stack"><div class="item-value ${gateway.reachable ? 'positive' : 'negative'}">${gateway.reachable ? '정상이에요' : '지금 연결이 불안정해요'}</div><div class="item-sub">${gateway.reachable ? '명령을 보내거나 이미지를 붙여도 될 가능성이 높아요' : '복구 메뉴에서 브리지나 게이트웨이를 확인해 보세요'}</div></div></div>
         <div class="item"><div class="item-label">진행 중 작업</div><div class="item-stack"><div class="item-value">${tasks.active ?? 0}개</div><div class="item-sub">지금 처리 중인 작업 수예요</div></div></div>
