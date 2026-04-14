@@ -472,6 +472,17 @@ body {
   background: rgba(255,255,255,.04);
   overflow: hidden;
 }
+.terminal-overview .accordion-section {
+  margin: 0 0 8px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.05);
+}
+.terminal-overview .accordion-header {
+  padding: 10px 12px;
+}
+.terminal-overview .accordion-body {
+  border-top: 1px solid rgba(255,255,255,.04);
+}
 .terminal-card-head {
   display:flex; align-items:center; justify-content:space-between; gap:8px;
   padding: 10px 12px 0;
@@ -2135,44 +2146,64 @@ function renderTerminalOverview() {
   const favoriteHtml = favoriteRecent.length
     ? favoriteRecent.map(s => `<button class="terminal-session-chip" onclick='setComposerTarget(${JSON.stringify(s.session_id || s.key || '')}, ${JSON.stringify(s.agent_id || s.key || 'session')})'><strong>★</strong>${esc(s.agent_id || 'session')} · ${esc(s.percent_used != null ? s.percent_used + '%' : 'ctx —')}</button>`).join('')
     : favoriteKeys.map(favoriteSessionQuickChip).join('');
+
+  const statusBody = `
+    <div class="terminal-alerts">
+      <span class="terminal-pill ${gateway.reachable ? 'ok' : 'error'}">gateway ${gateway.reachable ? 'online' : 'offline'}</span>
+      <span class="terminal-pill ${probeFail ? 'error' : 'info'}">probe ${probeFail ? 'fail' : 'ok'}</span>
+      <span class="terminal-pill ${(tasks.failures || 0) > 0 ? 'warn' : 'ok'}">failures ${tasks.failures || 0}</span>
+      <span class="terminal-pill ${(tasks.active || 0) > 0 ? 'info' : 'ok'}">active ${tasks.active || 0}</span>
+      <span class="terminal-pill info">sessions ${sessions.count || 0}</span>
+    </div>
+    <div class="terminal-actions">
+      <button class="terminal-action primary" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 확인</button>
+      <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
+      <button class="terminal-action" onclick="loadTerminalOverview()">새로고침</button>
+    </div>
+    ${favoriteHtml ? `<div class="terminal-card-head"><div><div class="terminal-card-title">즐겨찾기 세션</div><div class="terminal-card-sub">자주 보는 세션으로 바로 보내기</div></div></div><div class="terminal-session-chips">${favoriteHtml}</div>` : ''}
+  `;
+
+  const diagnosticsBody = `
+    <div class="terminal-actions">
+      <button class="terminal-action primary" onclick="openOpsDetail('연결 확인', '/tunnel probe', 'status')">연결 확인</button>
+      <button class="terminal-action warn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>
+      <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 20', 'log')">브리지 로그</button>
+      <button class="terminal-action" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
+    </div>
+    ${lastErrorState ? `<div class="terminal-error-card" style="margin:0 12px 12px"><div class="terminal-card-head"><div><div class="terminal-card-title">최근 오류</div><div class="terminal-card-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div><button class="terminal-action" onclick="switchTab('status')">자세히</button></div><div class="terminal-error-body">${esc(lastErrorState.message)}</div></div>` : ''}
+  `;
+
+  const recoveryBody = `
+    <div class="terminal-actions-label">Telegram이 안 되거나 OpenClaw가 흔들릴 때 쓰는 복구 버튼</div>
+    <div class="terminal-actions">
+      <button class="terminal-action" onclick="checkConn(true)">브리지 재확인</button>
+      <button class="terminal-action warn" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
+      <button class="terminal-action danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
+      ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
+    </div>
+    <div class="terminal-actions-label">업데이트 실패 복구 모드</div>
+    <div class="terminal-actions">
+      <button class="terminal-action" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
+      <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
+      <button class="terminal-action" onclick="switchTab('status')">최후 복구 가이드 보기</button>
+    </div>
+  `;
+
   wrap.innerHTML = `
     <div class="terminal-summary-card">
       <div class="terminal-card-head">
         <div>
           <div class="terminal-card-title">운영 요약</div>
-          <div class="terminal-card-sub">터미널에서 바로 보고 바로 조치</div>
+          <div class="terminal-card-sub">터미널 메시지를 가리지 않게 접었다 펼 수 있어요</div>
         </div>
         <button class="terminal-action primary" onclick="loadTerminalOverview()">새로고침</button>
       </div>
-      <div class="terminal-alerts">
-        <span class="terminal-pill ${gateway.reachable ? 'ok' : 'error'}">gateway ${gateway.reachable ? 'online' : 'offline'}</span>
-        <span class="terminal-pill ${probeFail ? 'error' : 'info'}">probe ${probeFail ? 'fail' : 'ok'}</span>
-        <span class="terminal-pill ${(tasks.failures || 0) > 0 ? 'warn' : 'ok'}">failures ${tasks.failures || 0}</span>
-        <span class="terminal-pill ${(tasks.active || 0) > 0 ? 'info' : 'ok'}">active ${tasks.active || 0}</span>
-        <span class="terminal-pill info">sessions ${sessions.count || 0}</span>
-      </div>
       <div class="terminal-actions-block">
-        <div class="terminal-actions-label">원클릭 복구, 모두 안전한 읽기 전용 진단</div>
-        <div class="terminal-actions">
-          <button class="terminal-action primary" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 확인</button>
-          <button class="terminal-action primary" onclick="openOpsDetail('연결 확인', '/tunnel probe', 'status')">연결 확인</button>
-          <button class="terminal-action warn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>
-          <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 20', 'log')">브리지 로그</button>
-          <button class="terminal-action" onclick="checkConn(true)">브리지 재확인</button>
-          <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
-          ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
-        </div>
-        <div class="terminal-actions-label">업데이트 실패 복구 모드</div>
-        <div class="terminal-actions">
-          <button class="terminal-action" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
-          <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
-          <button class="terminal-action warn" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
-          <button class="terminal-action danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
-        </div>
+        ${renderAccordionSection('terminal-status-check', '1', '상태 확인', 'OpenClaw 상태와 핵심 세션 요약', statusBody, false)}
+        ${renderAccordionSection('terminal-diagnostics', '2', '진단', '터널, bridge, gateway 이상 여부 확인', diagnosticsBody, false)}
+        ${renderAccordionSection('terminal-recovery', '3', '복구', '재시작과 장애 복구 동선', recoveryBody, false)}
       </div>
     </div>
-    ${lastErrorState ? `<div class="terminal-error-card"><div class="terminal-card-head"><div><div class="terminal-card-title">최근 오류</div><div class="terminal-card-sub">${new Date(lastErrorState.at).toLocaleString()}</div></div><button class="terminal-action" onclick="switchTab('status')">자세히</button></div><div class="terminal-error-body">${esc(lastErrorState.message)}</div></div>` : ''}
-    ${favoriteHtml ? `<div class="terminal-fav-sessions"><div class="terminal-card-head"><div><div class="terminal-card-title">즐겨찾기 세션</div><div class="terminal-card-sub">자주 보는 세션으로 바로 보내기</div></div><button class="terminal-action" onclick="switchTab('sessions')">세션 보기</button></div><div class="terminal-session-chips">${favoriteHtml}</div></div>` : ''}
   `;
   wrap.classList.add('visible');
 }
