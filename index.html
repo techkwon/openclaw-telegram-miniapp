@@ -417,9 +417,13 @@ body {
 .send-btn:disabled { opacity: .4; }
 .hidden-input { display: none; }
 .attach-preview {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  width: 100%; padding: 0 10px 8px;
+}
+.attach-item {
+  display:flex; align-items:center; gap:8px;
   background: rgba(255,255,255,.08); border-radius: 12px;
-  padding: 6px 8px; max-width: 220px; overflow: hidden;
+  padding: 6px 8px; overflow: hidden;
 }
 .attach-thumb {
   width: 32px; height: 32px; border-radius: 8px;
@@ -430,7 +434,7 @@ body {
   color: var(--accent); font-size: 14px;
 }
 .attach-thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
-.attach-meta { min-width: 0; display:flex; flex-direction:column; gap:2px; }
+.attach-meta { min-width: 0; display:flex; flex-direction:column; gap:2px; flex:1; }
 .attach-name {
   font-size: 11px; color: var(--accent); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
@@ -1070,23 +1074,17 @@ body {
   <div class="terminal-overview" id="terminal-overview"></div>
   <div class="chat-input-bar" id="chat-input-bar">
     <button class="attach-btn" id="attach-btn" onclick="triggerAttach()" title="파일 첨부">&#128206;</button>
-    <input type="file" id="file-input" class="hidden-input" accept="image/*,.pdf,.csv,.txt,.json" onchange="handleFileAttach(this)">
-    <div class="attach-preview" id="attach-preview" style="display:none">
-      <div class="attach-thumb" id="attach-thumb">🖼️</div>
-      <div class="attach-meta">
-        <span id="attach-name" class="attach-name"></span>
-        <span id="attach-sub" class="attach-sub"></span>
-      </div>
-      <button class="attach-remove" onclick="removeAttachment()" title="제거">&#10005;</button>
-    </div>
+    <input type="file" id="file-input" class="hidden-input" accept="image/*,.pdf,.csv,.txt,.json" multiple onchange="handleFileAttach(this)">
+    <div class="attach-preview" id="attach-preview" style="display:none"></div>
     <textarea class="chat-input" id="chat-input" placeholder="메시지 또는 /명령어..." rows="1"
       oninput="onInputChange(this)" onkeydown="handleKey(event)"></textarea>
     <button class="send-btn" id="send-btn" onclick="sendMessage()">&#9654;</button>
   </div>
   <div class="attach-actions" id="attach-actions">
-    <button class="attach-chip" onclick="applyAttachmentPrompt('이 이미지가 무엇인지 한눈에 설명해줘.')">빠른 설명</button>
-    <button class="attach-chip" onclick="applyAttachmentPrompt('이미지 안의 글자를 읽어서 정리해줘.')">텍스트 추출</button>
-    <button class="attach-chip" onclick="applyAttachmentPrompt('이 화면에서 이상하거나 고칠 점을 찾아줘.')">문제 찾기</button>
+    <button class="attach-chip" onclick="applyAttachmentPrompt('첨부한 내용을 한눈에 설명해줘.')">빠른 설명</button>
+    <button class="attach-chip" onclick="applyAttachmentPrompt('첨부한 내용에서 글자와 핵심 정보를 추출해줘.')">텍스트 추출</button>
+    <button class="attach-chip" onclick="applyAttachmentPrompt('첨부한 화면이나 자료에서 이상하거나 고칠 점을 찾아줘.')">문제 찾기</button>
+    <button class="attach-chip" onclick="applyAttachmentPrompt('첨부한 자료를 짧게 요약해줘.')">요약</button>
   </div>
   <div class="attach-hint" id="attach-hint">이미지는 일반 프롬프트와 함께 분석돼요. 슬래시 명령과 같이 보내면 분석 모드로 바꿔서 보내는 편이 좋아요.</div>
 </div>
@@ -1221,7 +1219,7 @@ let userId = null;
 let apiToken = null;      // Bearer token for non-Telegram (browser) access
 let isTelegram = false;   // true when running inside Telegram client
 let allCommands = [];       // full registry from /api/commands
-let attachedImage = null;  // {data_url, name}
+let attachedFiles = [];     // [{ id, kind, data_url?, text_content?, name, type, size }]
 let pendingMsgMenu = null;  // msg element pending menu action
 let streamAbort = null;     // AbortController for cancelling active stream
 let _streamDiv = null;      // currently streaming message element
@@ -1620,7 +1618,8 @@ function addMsg(role, text, cls, opts = {}) {
   const d = document.createElement('div');
   d.className = `msg msg-${role}${cls ? ' ' + cls : ''}`;
   const time = opts.time || now();
-  const imgHtml = opts.img ? `<img class="msg-img" src="${opts.img}" alt="attachment">` : '';
+  const imgs = Array.isArray(opts.imgs) ? opts.imgs : (opts.img ? [opts.img] : []);
+  const imgHtml = imgs.length ? imgs.map(src => `<img class="msg-img" src="${src}" alt="attachment">`).join('') : '';
   if (role === 'agent' || role === 'command') {
     d.innerHTML = `<div class="msg-bubble">${imgHtml}${renderMsg(text)}</div>
       <div class="msg-time">${time}</div>
@@ -1876,11 +1875,37 @@ function formatFileSize(bytes) {
   return bytes + ' B';
 }
 
+function isImageAttachment(file) {
+  return !!file && String(file.type || '').startsWith('image/');
+}
+
+function isTextAttachment(file) {
+  const type = String(file?.type || '');
+  return type.startsWith('text/') || type === 'application/json' || type === 'text/csv';
+}
+
+function getImageAttachments() {
+  return attachedFiles.filter(isImageAttachment);
+}
+
+function getTextAttachments() {
+  return attachedFiles.filter(isTextAttachment);
+}
+
+function getPdfAttachments() {
+  return attachedFiles.filter(file => String(file.type || '') === 'application/pdf');
+}
+
 function applyAttachmentPrompt(text) {
-  if (!attachedImage) return;
+  if (!attachedFiles.length) return;
   input.value = text;
   input.focus();
   resize(input);
+}
+
+function pushAttachment(payload) {
+  attachedFiles = [...attachedFiles, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), ...payload }].slice(0, 6);
+  updateAttachPreview();
 }
 
 function attachFile(file) {
@@ -1891,53 +1916,77 @@ function attachFile(file) {
     toast('지원하지 않는 파일 형식입니다. 이미지, PDF, 텍스트 파일을 사용해 주세요.');
     return;
   }
+  if (isTextAttachment({ type })) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      pushAttachment({ kind: 'text', text_content: String(e.target.result || ''), name: file.name, type, size: file.size || 0 });
+      toast('파일 첨부 완료: ' + file.name, 1800, true);
+    };
+    reader.readAsText(file);
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => {
-    attachedImage = { data_url: e.target.result, name: file.name, type: file.type || '', size: file.size || 0 };
-    updateAttachPreview();
+    pushAttachment({ kind: isImageAttachment({ type }) ? 'image' : 'binary', data_url: e.target.result, name: file.name, type, size: file.size || 0 });
     toast('파일 첨부 완료: ' + file.name, 1800, true);
   };
   reader.readAsDataURL(file);
 }
 
 function handleFileAttach(input) {
-  const file = input.files?.[0];
-  if (!file) return;
-  attachFile(file);
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  files.forEach(attachFile);
   input.value = '';
+}
+
+function attachmentThumb(file) {
+  if (isImageAttachment(file) && file.data_url) return `<img src="${file.data_url}" alt="attachment preview">`;
+  if (String(file.type || '') === 'application/pdf') return '📄';
+  if (isTextAttachment(file)) return '📝';
+  return '📎';
 }
 
 function updateAttachPreview() {
   const el = document.getElementById('attach-preview');
-  const nameEl = document.getElementById('attach-name');
-  const subEl = document.getElementById('attach-sub');
-  const thumb = document.getElementById('attach-thumb');
   const actions = document.getElementById('attach-actions');
   const hint = document.getElementById('attach-hint');
-  if (attachedImage) {
-    nameEl.textContent = attachedImage.name || 'file';
-    subEl.textContent = `${attachedImage.type || 'unknown'} · ${formatFileSize(attachedImage.size)}`;
-    if ((attachedImage.type || '').startsWith('image/')) {
-      thumb.innerHTML = `<img src="${attachedImage.data_url}" alt="attachment preview">`;
-      actions.classList.add('visible');
-      hint.classList.add('visible');
+  const images = getImageAttachments();
+  const texts = getTextAttachments();
+  const pdfs = getPdfAttachments();
+  if (attachedFiles.length) {
+    el.innerHTML = attachedFiles.map(file => `
+      <div class="attach-item">
+        <div class="attach-thumb">${attachmentThumb(file)}</div>
+        <div class="attach-meta">
+          <span class="attach-name">${esc(file.name || 'file')}</span>
+          <span class="attach-sub">${esc(file.type || 'unknown')} · ${formatFileSize(file.size)}</span>
+        </div>
+        <button class="attach-remove" onclick="removeAttachment('${file.id}')" title="제거">&#10005;</button>
+      </div>
+    `).join('');
+    actions.classList.add('visible');
+    if (pdfs.length) {
+      hint.textContent = 'PDF는 아직 직접 분석 전송이 완전히 준비되지 않았어요. 이미지는 바로 분석되고, 텍스트 파일은 본문으로 함께 보내집니다.';
+    } else if (texts.length && images.length) {
+      hint.textContent = '이미지와 텍스트 파일을 함께 보냅니다. 텍스트 파일은 본문에 요약용으로 같이 실려요.';
+    } else if (texts.length) {
+      hint.textContent = '텍스트 파일은 본문에 함께 실립니다. 긴 파일은 앞부분만 보내집니다.';
     } else {
-      thumb.textContent = attachedImage.type === 'application/pdf' ? '📄' : '📎';
-      actions.classList.remove('visible');
-      hint.classList.remove('visible');
+      hint.textContent = '여러 이미지를 함께 분석할 수 있어요. 붙여넣기와 드래그 앤 드롭도 됩니다.';
     }
+    hint.classList.add('visible');
     el.style.display = 'flex';
   } else {
     el.style.display = 'none';
+    el.innerHTML = '';
     actions.classList.remove('visible');
     hint.classList.remove('visible');
-    thumb.textContent = '🖼️';
-    thumb.innerHTML = '🖼️';
   }
 }
 
-function removeAttachment() {
-  attachedImage = null;
+function removeAttachment(id) {
+  attachedFiles = attachedFiles.filter(file => file.id !== id);
   updateAttachPreview();
   WebApp?.HapticFeedback?.impactOccurred('light');
 }
@@ -1948,16 +1997,16 @@ function registerAttachmentInteractions() {
   if (!panel || panel.dataset.attachReady === '1') return;
   panel.dataset.attachReady = '1';
   input.addEventListener('paste', (event) => {
-    const items = Array.from(event.clipboardData?.items || []);
-    const imageItem = items.find(item => item.type?.startsWith('image/'));
-    if (!imageItem) return;
-    const file = imageItem.getAsFile();
-    if (!file) return;
+    const items = Array.from(event.clipboardData?.items || []).filter(item => item.type?.startsWith('image/'));
+    if (!items.length) return;
     event.preventDefault();
-    attachFile(file);
+    items.forEach(item => {
+      const file = item.getAsFile();
+      if (file) attachFile(file);
+    });
   });
   ['dragenter', 'dragover'].forEach(type => panel.addEventListener(type, (event) => {
-    if (!Array.from(event.dataTransfer?.items || []).some(item => item.type?.startsWith('image/'))) return;
+    if (!Array.from(event.dataTransfer?.items || []).some(item => item.type)) return;
     event.preventDefault();
     bar.classList.add('terminal-drop-target');
   }));
@@ -1965,10 +2014,10 @@ function registerAttachmentInteractions() {
     bar.classList.remove('terminal-drop-target');
   }));
   panel.addEventListener('drop', (event) => {
-    const file = Array.from(event.dataTransfer?.files || []).find(f => (f.type || '').startsWith('image/'));
-    if (!file) return;
+    const files = Array.from(event.dataTransfer?.files || []).filter(f => f.type || f.name);
+    if (!files.length) return;
     event.preventDefault();
-    attachFile(file);
+    files.forEach(attachFile);
   });
 }
 
@@ -2167,34 +2216,47 @@ async function loadModelInfo() {
 // ─── SEND ───────────────────────────────────────────────────────────────────
 async function sendMessage() {
   const text = input.value.trim();
-  if (!text && !attachedImage) return;
+  if (!text && !attachedFiles.length) return;
   input.value = '';
   input.style.height = 'auto';
   suggest.classList.remove('visible');
   hideRetry();
   WebApp?.HapticFeedback?.impactOccurred('light');
 
-  // Build content — multimodal if image attached
+  // Build content
+  const imageFiles = getImageAttachments();
+  const textFiles = getTextAttachments();
+  const pdfFiles = getPdfAttachments();
+  if (pdfFiles.length) {
+    toast('PDF 직접 분석 전송은 아직 준비 중이에요. 지금은 이미지나 텍스트 파일 위주로 써 주세요.', 2600);
+    return;
+  }
   let msgContent;
-  if (attachedImage) {
+  const textAttachmentSuffix = textFiles.length
+    ? '\n\n' + textFiles.map(file => {
+        const body = String(file.text_content || '').slice(0, 8000);
+        return `[첨부 텍스트: ${file.name}]\n${body}`;
+      }).join('\n\n')
+    : '';
+  if (imageFiles.length) {
     msgContent = [
-      { type: 'image_url', image_url: { url: attachedImage.data_url } },
-      { type: 'text', text: text || 'Analyze this image' }
+      ...imageFiles.map(file => ({ type: 'image_url', image_url: { url: file.data_url } })),
+      { type: 'text', text: (text || 'Analyze these attachments') + textAttachmentSuffix }
     ];
   } else {
-    msgContent = text;
+    msgContent = (text || '첨부한 텍스트 파일을 분석해줘.') + textAttachmentSuffix;
   }
 
   if (text.startsWith('/')) {
-    if (attachedImage) {
-      toast('이미지 첨부는 일반 프롬프트 분석과 함께 쓰는 편이 좋아요. 아래 빠른 설명 칩을 눌러 바로 보낼 수 있어요.', 2600);
+    if (attachedFiles.length) {
+      toast('첨부 파일은 일반 프롬프트 분석과 함께 쓰는 편이 좋아요. 아래 추천 칩으로 바로 보내보세요.', 2600);
       input.value = text;
       resize(input);
       return;
     }
     saveRecentCommand(text);
-    addMsg('user', text, null, { img: attachedImage?.data_url });
-    attachedImage = null;
+    addMsg('user', text, null, { imgs: imageFiles.map(file => file.data_url) });
+    attachedFiles = [];
     updateAttachPreview();
     const parts = text.split(/\s+/);
     const cmd = parts[0].slice(1);
@@ -2224,13 +2286,13 @@ async function sendMessage() {
 
   // Composer-routed session send
   if (composerSessionTarget) {
-    if (attachedImage) {
-      toast('다른 세션으로 이미지를 보내는 연결은 아직 준비 중이에요. 현재 세션 분석용으로 먼저 쓰는 게 안전합니다.', 2600);
+    if (attachedFiles.length) {
+      toast('다른 세션으로 첨부 파일을 보내는 연결은 아직 준비 중이에요. 현재 세션 분석용으로 먼저 쓰는 게 안전합니다.', 2600);
       return;
     }
     const routed = `/session send ${composerSessionTarget.target} ${text}`;
-    addMsg('user', `↪ ${composerSessionTarget.label}\n${text}`, null, { img: attachedImage?.data_url });
-    attachedImage = null;
+    addMsg('user', `↪ ${composerSessionTarget.label}\n${text}`, null, { imgs: imageFiles.map(file => file.data_url) });
+    attachedFiles = [];
     updateAttachPreview();
     lastRequest = { text: routed, isCommand: true, body: { command: '/session send', args: `${composerSessionTarget.target} ${text}` } };
     addTyping();
@@ -2254,8 +2316,8 @@ async function sendMessage() {
   }
 
   // Regular chat
-  addMsg('user', text, null, { img: attachedImage?.data_url });
-  attachedImage = null;
+  addMsg('user', text, null, { imgs: imageFiles.map(file => file.data_url) });
+  attachedFiles = [];
   updateAttachPreview();
   lastRequest = { text, isCommand: false };
   addTyping();
