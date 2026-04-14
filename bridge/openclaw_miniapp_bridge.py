@@ -720,6 +720,8 @@ def command_output(command, args):
         return json.dumps(commands_payload(), ensure_ascii=False, indent=2)
     if normalized in ('status',):
         return summarize_status(get_status_json())
+    if normalized in ('gateway status deep', 'gateway deep', 'status deep'):
+        return run_cli(['gateway', 'status', '--deep'])
     if normalized in ('runtime', 'runtime status'):
         return json.dumps(get_runtime_status(), ensure_ascii=False, indent=2)
     if normalized in ('model',):

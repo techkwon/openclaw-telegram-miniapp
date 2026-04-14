@@ -2148,8 +2148,10 @@ function renderTerminalOverview() {
           <button class="terminal-action" onclick="switchTab('status')">상태 패널</button>
           ${lastErrorState ? `<button class="terminal-action danger" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : ''}
         </div>
-        <div class="terminal-actions-label">조치형 버튼, 클릭 시 실제 서비스 재시작</div>
+        <div class="terminal-actions-label">업데이트 실패 복구 모드</div>
         <div class="terminal-actions">
+          <button class="terminal-action" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
+          <button class="terminal-action" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
           <button class="terminal-action warn" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
           <button class="terminal-action danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
         </div>
@@ -2608,6 +2610,17 @@ async function loadStatus() {
           <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
           <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
           ${lastErrorState ? `<button class="qbtn" onclick="clearLastErrorAndRefresh()">오류 지우기</button>` : `<button class="qbtn" onclick="openOpsDetail('문제 진단', '/tunnel doctor', 'text')">문제 진단</button>`}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header"><h2>업데이트 실패 복구 모드</h2></div>
+        <div class="item"><div class="item-label">권장 순서</div><div class="item-value">심층 상태 확인 → 로그 확인 → 게이트웨이 재시작</div></div>
+        <div class="quick-grid">
+          <button class="qbtn" onclick="openOpsDetail('게이트웨이 심층 상태', '/gateway status deep', 'text')">심층 상태</button>
+          <button class="qbtn" onclick="openOpsDetail('최근 브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
+          <button class="qbtn reload" onclick="runRecoveryAction('restart_bridge', '브리지 재시작')">브리지 재시작</button>
+          <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
         </div>
       </div>
     `;
