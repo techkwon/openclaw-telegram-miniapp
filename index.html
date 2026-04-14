@@ -2544,6 +2544,22 @@ function rerunRecoveryHistory(index) {
   runRecoveryAction(item.action, item.label || '복구 실행');
 }
 
+function getRecoveryHistoryComparison(items, index) {
+  const item = items[index];
+  if (!item) return null;
+  const previous = items.slice(index + 1).find(prev => (prev.action || '') === (item.action || '') && (prev.label || '') === (item.label || ''));
+  if (!previous) return null;
+  if (!!previous.ok === !!item.ok) {
+    return item.ok
+      ? { badgeClass: 'info', badgeText: '유지', text: '이전에도 성공했고 이번에도 성공했어요.' }
+      : { badgeClass: 'warn', badgeText: '반복 실패', text: '같은 복구가 이전에도 실패했어요.' };
+  }
+  if (!previous.ok && item.ok) {
+    return { badgeClass: 'ok', badgeText: '회복', text: '이전 실패에서 이번엔 성공으로 바뀌었어요.' };
+  }
+  return { badgeClass: 'warn', badgeText: '악화', text: '이전엔 성공했지만 이번엔 실패했어요.' };
+}
+
 function renderRecoveryHistoryCard(compact = false) {
   const items = recoveryHistory.length ? recoveryHistory : getRecoveryHistory();
   if (!items.length) return '';
@@ -2566,6 +2582,7 @@ function renderRecoveryHistoryCard(compact = false) {
   const body = filtered.slice(0, compact ? 2 : 4).map((item) => {
     const sourceIndex = items.indexOf(item);
     const busy = actionBusy && actionBusyKey === `${item.action || ''}::${item.label || ''}`;
+    const comparison = getRecoveryHistoryComparison(items, sourceIndex);
     return `
       <div class="recovery-history-item">
         <div class="recovery-history-top">
@@ -2575,8 +2592,10 @@ function renderRecoveryHistoryCard(compact = false) {
         <div class="badge-row" style="padding:6px 0 0; gap:4px">
           <span class="mini-badge ${item.ok ? 'ok' : 'warn'}">${item.ok ? '성공' : '실패'}</span>
           <span class="mini-badge info">${esc(item.action || 'action')}</span>
+          ${comparison ? `<span class="mini-badge ${comparison.badgeClass}">${esc(comparison.badgeText)}</span>` : ''}
         </div>
         <div class="recovery-history-result">${esc(item.summary || (item.ok ? '복구 작업이 완료됐어요' : '복구 작업이 실패했어요'))}</div>
+        ${comparison ? `<div class="recovery-history-result">${esc(comparison.text)}</div>` : ''}
         <div class="recovery-history-actions">
           <button class="recovery-history-btn warn" onclick="rerunRecoveryHistory(${sourceIndex})" ${busy || actionBusy ? 'disabled' : ''}>${busy ? '실행 중...' : '다시 실행'}</button>
           <button class="recovery-history-btn" onclick="openRecoveryHistoryDetail(${sourceIndex})" ${actionBusy ? 'disabled' : ''}>상세 보기</button>
