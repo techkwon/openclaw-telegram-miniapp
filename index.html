@@ -2649,6 +2649,26 @@ async function loadStatus() {
           <button class="qbtn danger" onclick="runRecoveryAction('restart_gateway', '게이트웨이 재시작')">게이트웨이 재시작</button>
         </div>
       </div>
+
+      <div class="section">
+        <div class="section-header"><h2>최후 복구 가이드</h2></div>
+        <div class="item"><div class="item-label">언제 쓰나</div><div class="item-value">bridge까지 죽어서 이 미니앱 버튼도 안 먹을 때</div></div>
+        <div class="item"><div class="item-label">1단계</div><div class="item-stack"><div class="item-value mono">curl http://127.0.0.1:8765/health</div><div class="item-sub">bridge 자체가 살아 있는지 먼저 확인</div></div></div>
+        <div class="quick-grid" style="padding:0 12px 10px">
+          <button class="qbtn" onclick='copyText("curl http://127.0.0.1:8765/health", "bridge health 복사")'>bridge health 복사</button>
+          <button class="qbtn" onclick='copyText("curl https://miniapp.techkwon.kr/health", "public health 복사")'>public health 복사</button>
+        </div>
+        <div class="item"><div class="item-label">2단계</div><div class="item-stack"><div class="item-value mono">launchctl kickstart -k gui/$(id -u)/ai.openclaw.miniapp-bridge</div><div class="item-sub">bridge만 죽었으면 이걸로 먼저 살리기</div></div></div>
+        <div class="quick-grid" style="padding:0 12px 10px">
+          <button class="qbtn reload" onclick='copyText("launchctl kickstart -k gui/$(id -u)/ai.openclaw.miniapp-bridge", "bridge restart 복사")'>bridge restart 복사</button>
+        </div>
+        <div class="item"><div class="item-label">3단계</div><div class="item-stack"><div class="item-value mono">openclaw gateway status --deep</div><div class="item-sub">업데이트 꼬임이나 gateway 비정상 여부 확인</div></div></div>
+        <div class="quick-grid" style="padding:0 12px 10px">
+          <button class="qbtn" onclick='copyText("openclaw gateway status --deep", "gateway status 복사")'>gateway status 복사</button>
+          <button class="qbtn danger" onclick='copyText("openclaw gateway restart", "gateway restart 복사")'>gateway restart 복사</button>
+        </div>
+        <div class="item"><div class="item-label">판단</div><div class="item-value">이 미니앱은 OpenClaw가 죽었을 때 복구 콘솔 역할을 하지만, bridge까지 같이 죽으면 결국 로컬 명령으로 한 번 살려야 해요.</div></div>
+      </div>
     `;
   } catch (e) {
     rememberError(e.message, 'status');
