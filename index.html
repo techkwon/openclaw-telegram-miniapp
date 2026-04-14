@@ -154,10 +154,45 @@ body {
 .menu-btn svg { width: 18px; height: 18px; }
 
 .header-title {
-  flex: 1; font-size: 13px; font-weight: 700;
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 13px; font-weight: 700;
   letter-spacing: .3px; text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.header-title-text {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.run-cat-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 120px; padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.run-cat-track {
+  position: relative; width: 54px; height: 10px; overflow: hidden;
+}
+.run-cat-track::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 50%; height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, rgba(129,140,248,.10), rgba(129,140,248,.35), rgba(129,140,248,.10));
+  border-radius: 999px;
+}
+.run-cat-sprite {
+  position: absolute; top: 50%; left: 0;
+  transform: translateY(-58%);
+  font-size: 11px; line-height: 1;
+  transition: left .14s linear;
+  filter: drop-shadow(0 0 6px rgba(129,140,248,.25));
+}
+.run-cat-label {
+  font-size: 9px; font-weight: 700; color: var(--hint);
+  text-transform: uppercase; letter-spacing: .6px;
+}
+.run-cat-wrap.fast .run-cat-label { color: var(--accent); }
+.run-cat-wrap.offline .run-cat-label { color: var(--destructive); }
 .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .conn-dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -861,7 +896,13 @@ body {
       <line x1="3" y1="18" x2="21" y2="18"/>
     </svg>
   </button>
-  <div class="header-title">OpenClaw</div>
+  <div class="header-title">
+    <span class="header-title-text">OpenClaw</span>
+    <span class="run-cat-wrap" id="run-cat-wrap" title="Mini App activity runner">
+      <span class="run-cat-label" id="run-cat-label">idle</span>
+      <span class="run-cat-track"><span class="run-cat-sprite" id="run-cat-sprite">🐈</span></span>
+    </span>
+  </div>
   <div class="header-right">
     <div style="display:flex;align-items:center;gap:5px">
       <div class="conn-dot" id="conn-dot"></div>
@@ -1057,6 +1098,7 @@ if (WebApp) { WebApp.ready(); WebApp.expand(); }
 let sessionId = null;
 let composerSessionTarget = null;
 let sessionsFilter = '';
+let sessionsKindFilter = 'all';
 let sessionsViewMode = 'comfy';
 let agentsViewMode = 'comfy';
 let currentSessions = [];
@@ -1080,6 +1122,15 @@ let _sessionStart = Date.now();
 let _durationTimer = null;
 let recentCommands = [];
 let lastErrorState = null;
+let runCatTimer = null;
+let runCatStep = 0;
+let runCatMode = 'idle';
+const RUN_CAT_FRAMES = {
+  idle: ['🐈', '🐾'],
+  online: ['🐈', '🐾', '🐈'],
+  fast: ['🐆', '💨', '🐆', '✨'],
+  offline: ['🐱', '💤']
+};
 const DEFAULT_FAVORITE_COMMANDS = ['/status', '/model', '/cron list', '/help'];
 
 // ─── DRAWER ────────────────────────────────────────────────────────────────
@@ -1271,11 +1322,35 @@ async function submitToken() {
     btn.textContent = '연결하기';
   }
 }
+function renderRunCat(mode = 'idle') {
+  const wrap = document.getElementById('run-cat-wrap');
+  const sprite = document.getElementById('run-cat-sprite');
+  const label = document.getElementById('run-cat-label');
+  if (!wrap || !sprite || !label) return;
+  const frames = RUN_CAT_FRAMES[mode] || RUN_CAT_FRAMES.idle;
+  runCatStep = (runCatStep + 1) % frames.length;
+  const lane = [0, 10, 20, 30, 40];
+  sprite.textContent = frames[runCatStep];
+  sprite.style.left = lane[runCatStep % lane.length] + 'px';
+  wrap.classList.toggle('fast', mode === 'fast');
+  wrap.classList.toggle('offline', mode === 'offline');
+  label.textContent = mode === 'fast' ? 'run' : mode;
+}
+
+function setRunCatMode(mode = 'idle') {
+  runCatMode = mode;
+  if (runCatTimer) clearInterval(runCatTimer);
+  renderRunCat(mode);
+  const interval = mode === 'fast' ? 170 : mode === 'online' ? 360 : mode === 'offline' ? 900 : 1200;
+  runCatTimer = setInterval(() => renderRunCat(runCatMode), interval);
+}
+
 function initAfterAuth() {
   // Called after token is accepted — resume normal init flow
   loadModelInfo();
   startDurationTimer();
   loadCommands();
+  setRunCatMode('idle');
   addMsg('system', 'OpenClaw 터미널입니다. /help 를 입력하거나 메뉴에서 명령을 선택하세요.');
   input.focus();
   setInterval(async () => {
@@ -1306,6 +1381,7 @@ function setConn(state, detail = '') {
   const lbl = document.getElementById('conn-label');
   dot.className = 'conn-dot ' + (state === 'online' ? 'online' : state === 'offline' ? 'offline' : '');
   lbl.textContent = state === 'online' ? '온라인' : state === 'offline' ? '오프라인' : '...';
+  setRunCatMode(state === 'online' ? (streaming ? 'fast' : 'online') : state === 'offline' ? 'offline' : 'idle');
   updateNetworkBar(state, detail || (state === 'offline' ? '브리지 또는 네트워크 연결을 확인해 주세요' : ''));
 }
 
@@ -1714,6 +1790,7 @@ function removeAttachment() {
 // ─── STREAMING STATE ──────────────────────────────────────────────────────
 function startStreaming() {
   streaming = true;
+  setRunCatMode('fast');
   sendBtn.disabled = false;         // keep clickable for cancel
   sendBtn.classList.add('streaming');
   sendBtn.innerHTML = '&#9632;';    // stop icon (square)
@@ -1722,6 +1799,7 @@ function startStreaming() {
 
 function stopStreaming() {
   streaming = false;
+  setRunCatMode(connState === 'online' ? 'online' : connState === 'offline' ? 'offline' : 'idle');
   streamAbort = null;
   sendBtn.classList.remove('streaming');
   sendBtn.innerHTML = '&#9654;';    // play icon
@@ -2150,11 +2228,17 @@ async function loadStatus() {
         <div class="section-header"><h2>빠른 실행</h2></div>
         <div class="quick-grid">
           <button class="qbtn reload" onclick="loadStatus()">새로고침</button>
-          <button class="qbtn" onclick="quickCmd('/status')">상태 요약</button>
+          <button class="qbtn" onclick="openOpsDetail('상태 요약', '/status', 'status')">상태 요약</button>
+          <button class="qbtn" onclick="openOpsDetail('터널 상태', '/tunnel status', 'status')">터널 상태</button>
+          <button class="qbtn" onclick="openOpsDetail('외부 probe', '/tunnel probe', 'status')">외부 probe</button>
+          <button class="qbtn" onclick="openOpsDetail('터널 진단', '/tunnel doctor', 'text')">터널 진단</button>
+          <button class="qbtn" onclick="openOpsDetail('터널 로그', '/logs tunnel 40', 'log')">터널 로그</button>
+          <button class="qbtn" onclick="openOpsDetail('브리지 로그', '/logs bridge 40', 'log')">브리지 로그</button>
+          <button class="qbtn" onclick="openOpsDetail('세션 목록', '/sessions list', 'text')">세션 목록</button>
           <button class="qbtn" onclick="quickCmd('/cron list')">크론 작업</button>
           <button class="qbtn" onclick="quickCmd('/model')">모델</button>
           <button class="qbtn" onclick="quickCmd('/help')">도움말</button>
-          <button class="qbtn" onclick="switchTab('terminal'); input.value='/new '; input.focus();">새 세션</button>
+          <button class="qbtn" onclick="quickCmdWithPrompt('/session new', '새 세션에 보낼 첫 메시지를 입력하세요')">새 세션</button>
         </div>
       </div>
     `;
@@ -2231,6 +2315,12 @@ function quickCmdWithPrompt(prefix, promptText) {
   const value = prompt(promptText || '값을 입력하세요');
   if (!value || !value.trim()) return;
   quickCmd(`${prefix} ${value.trim()}`);
+}
+
+function continueSessionPrompt(target, label) {
+  const value = prompt(`${label || '세션'}에 보낼 메시지를 입력하세요`);
+  if (!value || !value.trim()) return;
+  quickCmd(`/session send ${target} ${value.trim()}`);
 }
 async function copyText(text, label = '복사') {
   try {
@@ -2391,6 +2481,28 @@ function renderDetailTabs(target, label, mode) {
   return `<div class="detail-tabs">${tab('summary','summary')}${tab('status','status')}${tab('history','history')}</div>`;
 }
 
+async function openOpsDetail(title, command, kind = 'text') {
+  try {
+    const safeTitle = JSON.stringify(title || '운영 보기');
+    const safeCommand = JSON.stringify(command || '');
+    const buttons = `
+      <div class="quick-grid" style="padding:0 0 12px">
+        <button class="qbtn reload" onclick='openOpsDetail(${safeTitle}, ${safeCommand}, ${JSON.stringify(kind)})'>새로고침</button>
+        <button class="qbtn" onclick='quickCmd(${safeCommand}); closeDetailModal();'>터미널로 실행</button>
+        <button class="qbtn" onclick='copyText(${safeCommand}, "명령 복사")'>명령 복사</button>
+      </div>`;
+    const output = await fetchCommandOutput(command);
+    const parsed = tryParseJson(output);
+    let body = '';
+    if (parsed) body = renderHistoryCards(parsed?.messages ? parsed : { messages: [{ role: 'system', content: [{ type: 'text', text: JSON.stringify(parsed, null, 2) }] }] });
+    else if (kind === 'log') body = `<div class="history-card"><div class="history-text">${renderMsg(output || '(로그 없음)')}</div></div>`;
+    else body = renderKeyValueCard(output, kind);
+    await openDetailModal(title, buttons + body);
+  } catch (e) {
+    toast('운영 보기 실패: ' + e.message);
+  }
+}
+
 function stripLeadingEmoji(text) {
   return String(text || '').replace(/^([\p{Extended_Pictographic}\uFE0F\u200D]+\s*)+/u, '').trim();
 }
@@ -2510,6 +2622,20 @@ function filterSessionsList(value) {
   loadSessions();
 }
 
+function setSessionsKindFilter(mode) {
+  sessionsKindFilter = mode || 'all';
+  loadSessions();
+}
+
+function matchesSessionsKindFilter(s) {
+  const mode = sessionsKindFilter || 'all';
+  if (mode === 'all') return true;
+  if (mode === 'favorites') return isFavoriteSession(s.key || s.session_id);
+  if (mode === 'subagents') return String(s.key || '').includes(':subagent:');
+  if (mode === 'direct') return String(s.kind || '').includes('direct');
+  return true;
+}
+
 function renderPanelLoading(lines = 3) {
   return `<div class="loading-skeleton">${Array.from({ length: lines }).map(() => `
     <div class="skeleton-card">
@@ -2536,7 +2662,9 @@ function renderSessionCard(s, compact = false) {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
           <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='openSessionDetail(${target}, ${label}, "summary")'>요약</button>
+          <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='openSessionDetail(${target}, ${label}, "history")'>기록</button>
           <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='setComposerTarget(${sendTarget}, ${label})'>보내기</button>
+          <button class="qbtn" style="min-height:34px;padding:7px 10px;font-size:10px" onclick='continueSessionPrompt(${sendTarget}, ${label})'>즉시 전송</button>
         </div>
       </div>
     `;
@@ -2554,12 +2682,15 @@ function renderSessionCard(s, compact = false) {
     <div class="item"><div class="item-label">요약</div><div class="item-stack"><div class="item-value">${s.context_tokens ? _fmtTokens(s.context_tokens) : '—'} ctx</div><div class="item-sub">${isSub ? 'subagent 세션' : '일반 세션'}</div></div></div>
     <div class="quick-grid" style="padding:0 12px 12px">
       <button class="qbtn" onclick='copyText(${key}, "세션 키 복사")'>키 복사</button>
+      <button class="qbtn" onclick='copyText(${JSON.stringify(s.session_id || '')}, "세션 ID 복사")'>ID 복사</button>
       <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "summary")'>summary</button>
       <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "status")'>status</button>
       <button class="qbtn" onclick='openSessionDetail(${target}, ${label}, "history")'>history</button>
+      <button class="qbtn" onclick='quickCmd(${JSON.stringify(`/session history ${s.key || s.session_id || ''} 20`)})'>history 20</button>
       <button class="qbtn" onclick='setComposerTarget(${sendTarget}, ${label})'>send</button>
-      ${isSub ? `<button class="qbtn" onclick='steerSubagent(${key}, ${JSON.stringify(s.agent_id || 'subagent')})'>지시</button>` : `<button class="qbtn" onclick='fillCmd(${JSON.stringify('/usage')})'>usage</button>`}
-      ${isSub ? `<button class="qbtn danger" onclick='killSubagent(${key}, ${JSON.stringify(s.agent_id || 'subagent')})'>중단</button>` : `<button class="qbtn" onclick='fillCmd(${JSON.stringify('/runtime')})'>runtime</button>`}
+      <button class="qbtn" onclick='continueSessionPrompt(${sendTarget}, ${label})'>즉시 전송</button>
+      ${isSub ? `<button class="qbtn" onclick='steerSubagent(${key}, ${JSON.stringify(s.agent_id || 'subagent')})'>지시</button>` : `<button class="qbtn" onclick='quickCmd(${JSON.stringify(`/session summary ${s.key || s.session_id || ''}`)})'>요약 실행</button>`}
+      ${isSub ? `<button class="qbtn danger" onclick='killSubagent(${key}, ${JSON.stringify(s.agent_id || 'subagent')})'>중단</button>` : `<button class="qbtn" onclick='quickCmd(${JSON.stringify(`/session status ${s.key || s.session_id || ''}`)})'>상태 실행</button>`}
     </div>
     <div style="height:1px;background:var(--border);margin:8px 0"></div>
   `;
@@ -2682,6 +2813,7 @@ async function loadSessions() {
     sessionsViewMode = getSessionsViewMode();
     currentSessions = sortSessionsList(runtime?.sessions?.recent || []);
     const sessions = currentSessions.filter(s => {
+      if (!matchesSessionsKindFilter(s)) return false;
       if (!sessionsFilter) return true;
       const hay = [s.agent_id, s.model, s.kind, s.session_id, s.key].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(sessionsFilter);
@@ -2702,6 +2834,12 @@ async function loadSessions() {
         <div class="quick-grid" style="padding:0 12px 10px">
           <button class="qbtn ${sessionsViewMode === 'comfy' ? 'reload' : ''}" onclick="setSessionsViewMode('comfy')">자세히</button>
           <button class="qbtn ${sessionsViewMode === 'compact' ? 'reload' : ''}" onclick="setSessionsViewMode('compact')">간단히</button>
+        </div>
+        <div class="quick-grid" style="padding:0 12px 10px">
+          <button class="qbtn ${sessionsKindFilter === 'all' ? 'reload' : ''}" onclick="setSessionsKindFilter('all')">전체</button>
+          <button class="qbtn ${sessionsKindFilter === 'favorites' ? 'reload' : ''}" onclick="setSessionsKindFilter('favorites')">즐겨찾기</button>
+          <button class="qbtn ${sessionsKindFilter === 'direct' ? 'reload' : ''}" onclick="setSessionsKindFilter('direct')">direct</button>
+          <button class="qbtn ${sessionsKindFilter === 'subagents' ? 'reload' : ''}" onclick="setSessionsKindFilter('subagents')">subagent</button>
         </div>
         <div style="padding:0 14px 10px;font-size:10px;color:var(--hint)">${sessionsViewMode === 'compact' ? '핵심 정보와 빠른 동작만 표시합니다.' : '세션 ID, 키, 요약, 추가 동작까지 표시합니다.'}</div>
         ${sessions.length ? sessions.map(s => renderSessionCard(s, sessionsViewMode === 'compact')).join('') : '<div class="item"><div class="item-label">최근 세션</div><div class="item-value">없음</div></div>'}
@@ -2945,6 +3083,12 @@ window.cmdList = [
   {name:'cron pause', desc:'크론 작업 일시중지', args:'<id>'},
   {name:'cron resume', desc:'크론 작업 재개', args:'<id>'},
   {name:'cron show', desc:'크론 작업 상세', args:'<id>'},
+  {name:'tunnel status', desc:'Cloudflare tunnel 상태 요약'},
+  {name:'tunnel probe', desc:'외부 public origin probe'},
+  {name:'tunnel logs', desc:'cloudflared 최근 로그', args:'[lines]'},
+  {name:'tunnel doctor', desc:'tunnel 문제 자동 진단'},
+  {name:'logs bridge', desc:'bridge 최근 로그', args:'[lines]'},
+  {name:'logs tunnel', desc:'cloudflared 최근 로그', args:'[lines]'},
   {name:'help', desc:'전체 명령 보기'},
   {name:'commands', desc:'브리지 명령 목록 JSON 보기'},
   {name:'clear', desc:'화면 비우기'},
