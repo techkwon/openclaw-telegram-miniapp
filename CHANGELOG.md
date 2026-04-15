@@ -17,11 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 외부 health probe 및 외부 응답 세부 표시
   - 마지막 오류 상태 저장 및 `오류 지우기` 액션 추가
   - Cloudflare 1010/1033 및 외부 접속 실패용 상단 경고 배너 추가
-- 운영 문서 추가
+- browser fallback 보안 하드닝
+  - bridge 발급 short-lived browser session token 추가
+  - `/api/auth/session`, `/api/auth/refresh`, `/api/auth/revoke` 흐름 추가
+  - 브라우저 자동 refresh 스케줄링 및 설정 화면 logout 버튼 추가
+- 운영 문서 및 배포 가이드 보강
   - `OPERATIONS_CHECKLIST.md`
   - `NEXT_STEPS.md`
-- 배포 문서 보강
-  - README에 `miniapp.techkwon.kr` 기준 named tunnel / launchd 운영 메모 추가
+  - `.env.example` 확장
+  - README production checklist / 보안 메모 추가
+- bridge 배포 운영성 보강
+  - startup config validation 추가
+  - JSON 구조화 요청 로그 및 request id 추적 필드 추가
 
 ### Fixed
 - Telegram Mini App `initData` 검증을 Ed25519 우선 + HMAC fallback 구조로 정리
@@ -30,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 사용자 오류 메시지 분류 강화
   - 401, 403, Cloudflare 1010, Cloudflare 1033, 5xx 구분 표시
 - tunnel 운영 중복 문제 진단 가능하도록 상태 가시성 보강
+- browser session refresh race 및 저장 일관성 개선
+  - refresh cache/lock 추가
+  - client refresh dedupe/retry 추가
+  - token persistence 경로 통합
 
 ## [1.0.2] — 2026-04-12
 
