@@ -1362,6 +1362,7 @@ body {
 const WebApp = window.Telegram?.WebApp;
 const API = window.location.origin;
 const CS = WebApp?.CloudStorage;
+const BROWSER_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
 if (WebApp) { WebApp.ready(); WebApp.expand(); }
 
@@ -1624,6 +1625,25 @@ function showTokenGate() {
 function hideTokenGate() {
   document.getElementById('token-gate').style.display = 'none';
 }
+function wrapStoredToken(token) {
+  return JSON.stringify({ token, savedAt: Date.now(), expiresAt: Date.now() + BROWSER_TOKEN_TTL_MS });
+}
+function unwrapStoredToken(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.token) {
+      if (parsed.expiresAt && parsed.expiresAt < Date.now()) return null;
+      return parsed.token;
+    }
+  } catch (_) {}
+  return raw;
+}
+async function clearStoredApiToken() {
+  apiToken = null;
+  if (CS) { try { await CS.deleteItem?.('openclaw_api_token'); } catch (_) {} }
+  try { localStorage.removeItem('openclaw_api_token'); } catch (_) {}
+}
 async function submitToken() {
   const input = document.getElementById('token-input');
   const btn = document.getElementById('token-submit');
@@ -1651,9 +1671,9 @@ async function submitToken() {
     });
     if (r.ok) {
       apiToken = token;
-      // Store in CloudStorage (Telegram-native) and localStorage (browser fallback)
-      if (CS) { try { await CS.setItem('openclaw_api_token', token); } catch (_) {} }
-      try { localStorage.setItem('openclaw_api_token', token); } catch (_) {}
+      const wrapped = wrapStoredToken(token);
+      if (CS) { try { await CS.setItem('openclaw_api_token', wrapped); } catch (_) {} }
+      try { localStorage.setItem('openclaw_api_token', wrapped); } catch (_) {}
       hideTokenGate();
       initAfterAuth();
     } else {
@@ -4467,18 +4487,17 @@ async function init() {
 
   // Browser mode: enforce token auth
   if (!isTelegram) {
-    // Try CloudStorage first (Telegram-native), then localStorage (browser)
     let savedToken = null;
     if (CS) { try { savedToken = await CS.getItem('openclaw_api_token'); } catch (_) {} }
     if (!savedToken) { try { savedToken = localStorage.getItem('openclaw_api_token'); } catch (_) {} }
-    if (savedToken) {
-      apiToken = savedToken;
-      // Resume init with stored token
+    const usableToken = unwrapStoredToken(savedToken);
+    if (usableToken) {
+      apiToken = usableToken;
       await checkConn();
       setConn(connState);
       initAfterAuth();
     } else {
-      // No token — show the gate, stop init here
+      if (savedToken) await clearStoredApiToken();
       await checkConn();
       setConn(connState);
       showTokenGate();
@@ -4493,7 +4512,11 @@ async function init() {
 
     // Load saved Bearer token (from previous browser login, stored in CloudStorage)
     if (CS) {
-      try { const t = await CS.getItem('openclaw_api_token'); if (t) apiToken = t; } catch (_) {}
+      try {
+        const t = await CS.getItem('openclaw_api_token');
+        const usableToken = unwrapStoredToken(t);
+        if (usableToken) apiToken = usableToken;
+      } catch (_) {}
     }
 
     // Load existing session or create a new one immediately (before user can send)

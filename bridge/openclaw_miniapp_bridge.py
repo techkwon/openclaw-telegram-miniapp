@@ -11,6 +11,7 @@ import sys
 import time
 import shlex
 import uuid
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from http.client import HTTPConnection, HTTPSConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -43,6 +44,9 @@ TELEGRAM_OWNER_IDS = {
 INITDATA_MAX_AGE_SECONDS = int(os.environ.get('MINIAPP_INITDATA_MAX_AGE_SECONDS', '86400'))
 PUBLIC_ORIGIN = (os.environ.get('MINIAPP_PUBLIC_ORIGIN') or '').strip()
 AUTH_DEBUG = os.environ.get('MINIAPP_AUTH_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+RATE_LIMIT_WINDOW_SECONDS = max(1, int(os.environ.get('MINIAPP_RATE_LIMIT_WINDOW_SECONDS', '60')))
+RATE_LIMIT_MAX_REQUESTS = max(10, int(os.environ.get('MINIAPP_RATE_LIMIT_MAX_REQUESTS', '180')))
+RATE_LIMIT_ACTION_MAX_REQUESTS = max(3, int(os.environ.get('MINIAPP_RATE_LIMIT_ACTION_MAX_REQUESTS', '12')))
 DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
 TELEGRAM_ED25519_PUBLIC_KEY_PROD = bytes.fromhex('e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d')
@@ -50,6 +54,7 @@ BRIDGE_LOG_PATH = Path(os.environ.get('MINIAPP_BRIDGE_LOG_PATH') or str(Path.hom
 BRIDGE_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_BRIDGE_ERR_LOG_PATH') or str(Path.home() / '.openclaw' / 'logs' / 'openclaw-miniapp-bridge.err.log'))
 CLOUDFLARED_OUT_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_OUT_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.out.log'))
 CLOUDFLARED_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_ERR_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.err.log'))
+RATE_LIMITS = defaultdict(lambda: deque())
 
 COMMANDS = [
     {'name': 'help', 'description': '미니앱에서 지원하는 명령 보기', 'category': 'core'},
@@ -924,22 +929,84 @@ def validate_telegram_init_data(init_data):
         return False
 
 
+def _masked_origin(handler):
+    origin = (handler.headers.get('Origin') or '').strip()
+    if not origin:
+        return ''
+    parsed = urlparse(origin)
+    host = parsed.netloc or parsed.path
+    if not host:
+        return ''
+    return f'{parsed.scheme}://{host}' if parsed.scheme else host
+
+
+def _masked_user_agent(handler):
+    ua = (handler.headers.get('User-Agent') or '').strip()
+    return ua[:64] + ('…' if len(ua) > 64 else '')
+
+
+def _auth_debug_log(reason, handler, auth='', tg_init=''):
+    if not AUTH_DEBUG:
+        return
+    print(
+        f"auth reject: {reason} origin={_masked_origin(handler)!r} has_bearer={auth.startswith('Bearer ')} init_len={len(tg_init)} ua={_masked_user_agent(handler)!r}",
+        file=sys.stderr,
+    )
+
+
+def _rate_limit_key(handler):
+    tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
+    if tg_init:
+        try:
+            data = dict(parse_qsl(tg_init, keep_blank_values=True, strict_parsing=False))
+            user_raw = data.get('user', '')
+            if user_raw:
+                user = json.loads(user_raw)
+                user_id = str(user.get('id', '')).strip()
+                if user_id:
+                    return 'tg:' + user_id
+        except Exception:
+            pass
+    auth = handler.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        token = auth.removeprefix('Bearer ').strip()
+        if token:
+            return 'bearer:' + hashlib.sha256(token.encode('utf-8')).hexdigest()[:16]
+    client_ip = getattr(handler, 'client_address', ['unknown'])[0]
+    return 'ip:' + str(client_ip)
+
+
+def _enforce_rate_limit(handler):
+    key = _rate_limit_key(handler)
+    window = RATE_LIMIT_WINDOW_SECONDS
+    now = time.time()
+    bucket = RATE_LIMITS[key]
+    while bucket and bucket[0] < now - window:
+        bucket.popleft()
+    limit = RATE_LIMIT_ACTION_MAX_REQUESTS if self_path_is_action(handler.path) else RATE_LIMIT_MAX_REQUESTS
+    if len(bucket) >= limit:
+        raise RuntimeError('RateLimited')
+    bucket.append(now)
+
+
+def self_path_is_action(path):
+    return str(path or '').startswith('/api/actions/run')
+
+
 def auth_ok(handler):
     tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
     auth = handler.headers.get('Authorization', '')
     if tg_init:
         ok = validate_telegram_init_data(tg_init)
-        if not ok and AUTH_DEBUG:
-            print(f"auth reject: invalid telegram initData origin={(handler.headers.get('Origin') or '')!r} has_bearer={auth.startswith('Bearer ')} init_len={len(tg_init)} ua={(handler.headers.get('User-Agent') or '')[:120]!r}", file=sys.stderr)
+        if not ok:
+            _auth_debug_log('invalid telegram initData', handler, auth=auth, tg_init=tg_init)
         return ok
     if not SHARED_TOKEN:
-        if AUTH_DEBUG:
-            print(f"auth reject: no telegram initData and no shared token origin={(handler.headers.get('Origin') or '')!r} has_bearer={auth.startswith('Bearer ')} ua={(handler.headers.get('User-Agent') or '')[:120]!r}", file=sys.stderr)
+        _auth_debug_log('no telegram initData and no shared token', handler, auth=auth, tg_init=tg_init)
         return False
     if auth.startswith('Bearer ') and auth.removeprefix('Bearer ').strip() == SHARED_TOKEN:
         return True
-    if AUTH_DEBUG:
-        print(f"auth reject: bearer mismatch or missing origin={(handler.headers.get('Origin') or '')!r} has_bearer={auth.startswith('Bearer ')} ua={(handler.headers.get('User-Agent') or '')[:120]!r}", file=sys.stderr)
+    _auth_debug_log('bearer mismatch or missing', handler, auth=auth, tg_init=tg_init)
     return False
 
 
@@ -1084,6 +1151,8 @@ class Handler(BaseHTTPRequestHandler):
     def handle_exception(self, error):
         if isinstance(error, RuntimeError) and str(error) == 'Unauthorized':
             return json_response(self, 401, {'error': {'message': 'Unauthorized'}})
+        if isinstance(error, RuntimeError) and str(error) == 'RateLimited':
+            return json_response(self, 429, {'error': {'message': 'Too Many Requests'}})
         return json_response(self, 500, {'error': {'message': str(error)}})
 
     def do_GET(self):
@@ -1192,6 +1261,7 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
             raise RuntimeError('Unauthorized')
+        _enforce_rate_limit(self)
 
     def read_json(self):
         length = int(self.headers.get('Content-Length', '0'))
