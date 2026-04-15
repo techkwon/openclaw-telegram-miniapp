@@ -145,15 +145,18 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 2. [`docs/GITHUB_DEPLOYMENT.md`](docs/GITHUB_DEPLOYMENT.md)
 3. [`scripts/install.sh`](scripts/install.sh)
 4. [`scripts/verify_deployment.py`](scripts/verify_deployment.py)
-5. [`.env.example`](.env.example)
-6. [`requirements.txt`](requirements.txt)
-7. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
+5. [`scripts/check_repo.sh`](scripts/check_repo.sh)
+6. [`.env.example`](.env.example)
+7. [`requirements.txt`](requirements.txt)
+8. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
+9. [`Dockerfile`](Dockerfile)
 
 핵심 원칙:
 - repo에는 **문서, 템플릿, 설치 스크립트, 예시 설정**만 둡니다
 - 실제 token, password, secrets store는 **로컬 머신에만 둡니다**
 - 에이전트는 GitHub에서 repo를 가져오되, 머신 고유값은 로컬 service 설정에만 주입해야 합니다
 - 설치 완료 선언 전에는 반드시 `scripts/verify_deployment.py` 로 health 검증을 통과해야 합니다
+- PR이나 push 전에는 `scripts/check_repo.sh` 와 GitHub Actions CI가 같은 기본 검증을 수행합니다
 
 ### 설치 단계
 
@@ -240,6 +243,26 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 - 요청 로그는 JSON 한 줄 형식으로 남기며, bearer token 원문은 기록하지 않습니다.
 
 개인 사용자 배포에서는 기본값으로도 충분하지만, public 노출이 크면 TTL을 더 짧게 조정하는 쪽이 안전합니다.
+
+## CI / 컨테이너 경로
+
+이제 저장소에는 아래 약점 보강 경로가 추가되어 있습니다.
+
+- GitHub Actions CI: `.github/workflows/ci.yml`
+- 공통 체크 스크립트: `scripts/check_repo.sh`
+- 컨테이너 이미지 빌드 경로: `Dockerfile`
+
+빠른 로컬 체크:
+
+```bash
+./scripts/check_repo.sh
+```
+
+빠른 Docker 빌드 예시:
+
+```bash
+docker build -t openclaw-telegram-miniapp .
+```
 
 ## Production 체크리스트
 

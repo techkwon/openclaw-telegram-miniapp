@@ -8,6 +8,7 @@ The intended model is:
 - applies environment-specific values locally
 - starts or reloads the bridge service
 - verifies health endpoints
+- runs the same repository checks locally and in CI
 
 ## Deployment model
 
@@ -74,14 +75,19 @@ Never commit:
 4. `docs/AGENT_INSTALL.md`
 5. `scripts/install.sh`
 6. `scripts/verify_deployment.py`
-7. `OPERATIONS_CHECKLIST.md`
-8. service template matching the host OS
+7. `scripts/check_repo.sh`
+8. `OPERATIONS_CHECKLIST.md`
+9. `Dockerfile`
+10. service template matching the host OS
 
 ## Automation files included in this repo
 
 - `requirements.txt`
 - `scripts/install.sh`
 - `scripts/verify_deployment.py`
+- `scripts/check_repo.sh`
+- `.github/workflows/ci.yml`
+- `Dockerfile`
 
 ## Service files included in this repo
 
