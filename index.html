@@ -1343,6 +1343,13 @@ body {
           <button class="settings-option-btn" onclick="resetSettingsConfig()">reset</button>
         </div>
       </div>
+      <div class="settings-option" id="browser-session-option" style="display:none">
+        <div class="settings-option-main">
+          <div class="settings-option-title">브라우저 세션 로그아웃</div>
+          <div class="settings-option-sub">브라우저 fallback 세션 토큰을 즉시 폐기하고 다시 인증하게 합니다.</div>
+        </div>
+        <button class="settings-option-btn" onclick="logoutBrowserSession()">logout</button>
+      </div>
       <div class="settings-note">Telegram SettingsButton과 연결된 설정 화면입니다. 가능한 항목은 Telegram 저장소에도 함께 보관합니다.</div>
     </div>
   </div>
@@ -1473,6 +1480,7 @@ let recoveryHistory = [];
 let recoveryHistoryFilter = 'all';
 let actionBusy = false;
 let actionBusyKey = '';
+let browserSessionRefreshTimer = null;
 let currentMainButtonHandler = null;
 let biometricReady = false;
 let runCatTimer = null;
@@ -1628,21 +1636,67 @@ function hideTokenGate() {
 function wrapStoredToken(token, expiresAt = null) {
   return JSON.stringify({ token, savedAt: Date.now(), expiresAt: expiresAt || (Date.now() + BROWSER_TOKEN_TTL_MS) });
 }
-function unwrapStoredToken(raw) {
+function parseStoredToken(raw) {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && parsed.token) {
       if (parsed.expiresAt && parsed.expiresAt < Date.now()) return null;
-      return parsed.token;
+      return parsed;
     }
   } catch (_) {}
-  return raw;
+  return { token: raw, savedAt: Date.now(), expiresAt: Date.now() + BROWSER_TOKEN_TTL_MS };
 }
-async function clearStoredApiToken() {
+function unwrapStoredToken(raw) {
+  return parseStoredToken(raw)?.token || null;
+}
+function scheduleBrowserSessionRefresh(expiresAt) {
+  if (browserSessionRefreshTimer) clearTimeout(browserSessionRefreshTimer);
+  if (!expiresAt || isTelegram) return;
+  const wait = Math.max(15000, expiresAt - Date.now() - 2 * 60 * 1000);
+  browserSessionRefreshTimer = setTimeout(() => {
+    refreshBrowserSession().catch(() => {});
+  }, wait);
+}
+async function clearStoredApiToken(callRevoke = false) {
+  const currentToken = apiToken;
   apiToken = null;
+  if (browserSessionRefreshTimer) { clearTimeout(browserSessionRefreshTimer); browserSessionRefreshTimer = null; }
+  if (callRevoke && currentToken) {
+    try {
+      await fetchWithTimeout(API + '/api/auth/revoke', { method: 'POST', headers: { 'Authorization': 'Bearer ' + currentToken, 'X-Telegram-Init-Data': '' }, timeout: 5000 });
+    } catch (_) {}
+  }
   if (CS) { try { await CS.deleteItem?.('openclaw_api_token'); } catch (_) {} }
   try { localStorage.removeItem('openclaw_api_token'); } catch (_) {}
+}
+async function logoutBrowserSession() {
+  if (isTelegram) return;
+  await clearStoredApiToken(true);
+  closeSettingsModal();
+  showTokenGate();
+  toast('브라우저 세션을 종료했어요', 1600, true);
+}
+async function refreshBrowserSession() {
+  if (isTelegram || !apiToken) return false;
+  const r = await fetchWithTimeout(API + '/api/auth/refresh', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + apiToken, 'X-Telegram-Init-Data': '' },
+    timeout: 8000,
+  });
+  if (!r.ok) {
+    await clearStoredApiToken();
+    showTokenGate();
+    return false;
+  }
+  const session = await r.json().catch(() => ({}));
+  apiToken = session?.token || apiToken;
+  const expiresAt = session?.expires_at ? Number(session.expires_at) * 1000 : (Date.now() + BROWSER_TOKEN_TTL_MS);
+  const wrapped = wrapStoredToken(apiToken, expiresAt);
+  if (CS) { try { await CS.setItem('openclaw_api_token', wrapped); } catch (_) {} }
+  try { localStorage.setItem('openclaw_api_token', wrapped); } catch (_) {}
+  scheduleBrowserSessionRefresh(expiresAt);
+  return true;
 }
 async function submitToken() {
   const input = document.getElementById('token-input');
@@ -1672,6 +1726,7 @@ async function submitToken() {
       const wrapped = wrapStoredToken(apiToken, expiresAt);
       if (CS) { try { await CS.setItem('openclaw_api_token', wrapped); } catch (_) {} }
       try { localStorage.setItem('openclaw_api_token', wrapped); } catch (_) {}
+      scheduleBrowserSessionRefresh(expiresAt);
       hideTokenGate();
       initAfterAuth();
     } else {
@@ -3191,6 +3246,7 @@ function syncSettingsModalState() {
   const startTabBtn = document.getElementById('settings-start-tab-btn');
   const fullscreenBtn = document.getElementById('settings-fullscreen-btn');
   const recoveryGuardBtn = document.getElementById('settings-recovery-guard-btn');
+  const browserSessionOption = document.getElementById('browser-session-option');
   const helpOpen = getStatusHelpOpen();
   const advancedOpen = getAdvancedInfoOpen();
   const startTab = getStartTabPreference();
@@ -3215,6 +3271,9 @@ function syncSettingsModalState() {
   if (recoveryGuardBtn) {
     recoveryGuardBtn.textContent = recoveryGuard;
     recoveryGuardBtn.classList.add('active');
+  }
+  if (browserSessionOption) {
+    browserSessionOption.style.display = (!isTelegram && !!apiToken) ? 'flex' : 'none';
   }
 }
 
@@ -4492,9 +4551,11 @@ async function init() {
     let savedToken = null;
     if (CS) { try { savedToken = await CS.getItem('openclaw_api_token'); } catch (_) {} }
     if (!savedToken) { try { savedToken = localStorage.getItem('openclaw_api_token'); } catch (_) {} }
-    const usableToken = unwrapStoredToken(savedToken);
+    const parsedToken = parseStoredToken(savedToken);
+    const usableToken = parsedToken?.token || null;
     if (usableToken) {
       apiToken = usableToken;
+      scheduleBrowserSessionRefresh(parsedToken?.expiresAt || null);
       await checkConn();
       setConn(connState);
       initAfterAuth();
@@ -4516,7 +4577,8 @@ async function init() {
     if (CS) {
       try {
         const t = await CS.getItem('openclaw_api_token');
-        const usableToken = unwrapStoredToken(t);
+        const parsedToken = parseStoredToken(t);
+        const usableToken = parsedToken?.token || null;
         if (usableToken) apiToken = usableToken;
       } catch (_) {}
     }

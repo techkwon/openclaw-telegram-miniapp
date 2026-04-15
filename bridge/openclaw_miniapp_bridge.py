@@ -988,18 +988,36 @@ def _issue_browser_session(subject='browser'):
     }
 
 
-def _validate_browser_session(token):
+def _browser_session_meta(token):
     if not token:
-        return False
+        return None
     now = time.time()
     _cleanup_browser_sessions(now)
     meta = BROWSER_SESSIONS.get(token)
     if not meta:
-        return False
+        return None
     if (meta.get('expires_at') or 0) <= now:
         BROWSER_SESSIONS.pop(token, None)
+        return None
+    return meta
+
+
+def _validate_browser_session(token):
+    return _browser_session_meta(token) is not None
+
+
+def _refresh_browser_session(token):
+    meta = _browser_session_meta(token)
+    if not meta:
+        return None
+    BROWSER_SESSIONS.pop(token, None)
+    return _issue_browser_session(subject=meta.get('subject') or 'browser')
+
+
+def _revoke_browser_session(token):
+    if not token:
         return False
-    return True
+    return BROWSER_SESSIONS.pop(token, None) is not None
 
 
 def _rate_limit_key(handler):
@@ -1261,6 +1279,17 @@ class Handler(BaseHTTPRequestHandler):
                 _enforce_rate_limit(self)
                 session = _issue_browser_session(subject='browser-fallback')
                 return json_response(self, 200, {'ok': True, 'token': session['token'], 'issued_at': session['issued_at'], 'expires_at': session['expires_at'], 'ttl_seconds': session['ttl_seconds']})
+            if self.path == '/api/auth/refresh':
+                bearer = _extract_bearer_token(self)
+                session = _refresh_browser_session(bearer)
+                if not session:
+                    raise RuntimeError('Unauthorized')
+                _enforce_rate_limit(self)
+                return json_response(self, 200, {'ok': True, 'token': session['token'], 'issued_at': session['issued_at'], 'expires_at': session['expires_at'], 'ttl_seconds': session['ttl_seconds']})
+            if self.path == '/api/auth/revoke':
+                bearer = _extract_bearer_token(self)
+                revoked = _revoke_browser_session(bearer)
+                return json_response(self, 200, {'ok': True, 'revoked': revoked})
             if self.path == '/api/command':
                 output = command_output(body.get('command'), body.get('args'))
                 return json_response(self, 200, {'output': output})
