@@ -55,6 +55,8 @@ This repository now includes:
 - `scripts/verify_deployment.py`
 - `scripts/check_repo.sh`
 - `scripts/smoke_install.sh`
+- `scripts/runtime_smoke.sh`
+- `docs/START_HERE.md`
 
 Recommended agent flow:
 
@@ -80,6 +82,7 @@ The install script:
 Extra verification helpers:
 - `scripts/check_repo.sh` validates repository-level checks
 - `scripts/smoke_install.sh` simulates a fresh unattended install in a temporary directory
+- `scripts/runtime_smoke.sh` starts a mock gateway and verifies the bridge can actually boot and answer local requests
 
 ## 4. Environment baseline
 

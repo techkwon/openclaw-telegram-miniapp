@@ -135,6 +135,12 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 - ✅ Telegram 사용자 ID (@userinfobot에서 확인)
 - ✅ 도메인 (Cloudflare Tunnel용)
 
+## 빠른 문서 진입점
+
+- 시작점: [`docs/START_HERE.md`](docs/START_HERE.md)
+- 아키텍처: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- E2E 예시: [`docs/E2E_EXAMPLE.md`](docs/E2E_EXAMPLE.md)
+
 ## 에이전트 설치 경로
 
 이 저장소는 이제 **GitHub를 source of truth로 두고, OpenClaw 에이전트가 직접 clone / update / install** 할 수 있는 형태를 목표로 정리하고 있습니다.
@@ -147,11 +153,13 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 4. [`scripts/verify_deployment.py`](scripts/verify_deployment.py)
 5. [`scripts/check_repo.sh`](scripts/check_repo.sh)
 6. [`scripts/smoke_install.sh`](scripts/smoke_install.sh)
-7. [`.env.example`](.env.example)
-8. [`requirements.txt`](requirements.txt)
-9. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
-10. [`Dockerfile`](Dockerfile)
-11. [`docker-compose.yml`](docker-compose.yml)
+7. [`scripts/runtime_smoke.sh`](scripts/runtime_smoke.sh)
+8. [`docs/START_HERE.md`](docs/START_HERE.md)
+9. [`.env.example`](.env.example)
+10. [`requirements.txt`](requirements.txt)
+11. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
+12. [`Dockerfile`](Dockerfile)
+13. [`docker-compose.yml`](docker-compose.yml)
 
 핵심 원칙:
 - repo에는 **문서, 템플릿, 설치 스크립트, 예시 설정**만 둡니다
@@ -159,7 +167,7 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 - 에이전트는 GitHub에서 repo를 가져오되, 머신 고유값은 로컬 service 설정에만 주입해야 합니다
 - 설치 완료 선언 전에는 반드시 `scripts/verify_deployment.py` 로 health 검증을 통과해야 합니다
 - PR이나 push 전에는 `scripts/check_repo.sh` 와 GitHub Actions CI가 같은 기본 검증을 수행합니다
-- CI는 unattended install smoke test와 Docker image build까지 검증합니다
+- CI는 unattended install smoke test, bridge runtime smoke test, Docker image build까지 검증합니다
 
 ### 설치 단계
 
@@ -273,6 +281,16 @@ docker build -t openclaw-telegram-miniapp .
 
 ```bash
 docker compose up -d --build
+```
+
+## 구조 한눈에 보기
+
+```mermaid
+flowchart LR
+  TG[Telegram Mini App] --> CF[Cloudflare Tunnel / Public Origin]
+  CF --> BR[Mini App Bridge]
+  BR --> GW[OpenClaw Gateway]
+  BR --> UI[index.html static UI]
 ```
 
 ## Production 체크리스트

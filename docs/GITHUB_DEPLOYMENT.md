@@ -69,16 +69,18 @@ Never commit:
 
 ## Files agents should read first
 
-1. `README.md`
-2. `.env.example`
-3. `requirements.txt`
-4. `docs/AGENT_INSTALL.md`
-5. `scripts/install.sh`
-6. `scripts/verify_deployment.py`
-7. `scripts/check_repo.sh`
-8. `OPERATIONS_CHECKLIST.md`
-9. `Dockerfile`
-10. service template matching the host OS
+1. `docs/START_HERE.md`
+2. `README.md`
+3. `.env.example`
+4. `requirements.txt`
+5. `docs/AGENT_INSTALL.md`
+6. `scripts/install.sh`
+7. `scripts/verify_deployment.py`
+8. `scripts/check_repo.sh`
+9. `scripts/runtime_smoke.sh`
+10. `OPERATIONS_CHECKLIST.md`
+11. `Dockerfile`
+12. service template matching the host OS
 
 ## Automation files included in this repo
 
@@ -87,6 +89,8 @@ Never commit:
 - `scripts/verify_deployment.py`
 - `scripts/check_repo.sh`
 - `scripts/smoke_install.sh`
+- `scripts/runtime_smoke.sh`
+- `scripts/mock_gateway.py`
 - `.github/workflows/ci.yml`
 - `Dockerfile`
 - `docker-compose.yml`
@@ -137,9 +141,10 @@ Also verify:
 
 ## Reproducibility note
 
-CI now checks three layers:
+CI now checks four layers:
 - repository syntax and local checks
 - unattended install smoke test via `scripts/smoke_install.sh`
+- bridge runtime smoke test via `scripts/runtime_smoke.sh`
 - Docker image build
 
 This does not replace a real production deploy, but it closes most of the earlier reproducibility gap.
