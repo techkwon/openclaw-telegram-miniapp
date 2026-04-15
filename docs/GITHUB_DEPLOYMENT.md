@@ -35,9 +35,9 @@ cd "$HOME/openclaw-telegram-miniapp"
 Then:
 1. read `.env.example`
 2. read `docs/AGENT_INSTALL.md`
-3. configure service values for the local machine
-4. install launchd or systemd service
-5. verify `/health`
+3. run `scripts/install.sh` with machine-local values
+4. verify with `scripts/verify_deployment.py`
+5. only then declare success
 
 ### Update deployment
 
@@ -70,9 +70,18 @@ Never commit:
 
 1. `README.md`
 2. `.env.example`
-3. `docs/AGENT_INSTALL.md`
-4. `OPERATIONS_CHECKLIST.md`
-5. service template matching the host OS
+3. `requirements.txt`
+4. `docs/AGENT_INSTALL.md`
+5. `scripts/install.sh`
+6. `scripts/verify_deployment.py`
+7. `OPERATIONS_CHECKLIST.md`
+8. service template matching the host OS
+
+## Automation files included in this repo
+
+- `requirements.txt`
+- `scripts/install.sh`
+- `scripts/verify_deployment.py`
 
 ## Service files included in this repo
 

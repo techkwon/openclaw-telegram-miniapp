@@ -143,13 +143,17 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 
 1. [`docs/AGENT_INSTALL.md`](docs/AGENT_INSTALL.md)
 2. [`docs/GITHUB_DEPLOYMENT.md`](docs/GITHUB_DEPLOYMENT.md)
-3. [`.env.example`](.env.example)
-4. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
+3. [`scripts/install.sh`](scripts/install.sh)
+4. [`scripts/verify_deployment.py`](scripts/verify_deployment.py)
+5. [`.env.example`](.env.example)
+6. [`requirements.txt`](requirements.txt)
+7. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
 
 핵심 원칙:
-- repo에는 **문서, 템플릿, 예시 설정**만 둡니다
+- repo에는 **문서, 템플릿, 설치 스크립트, 예시 설정**만 둡니다
 - 실제 token, password, secrets store는 **로컬 머신에만 둡니다**
 - 에이전트는 GitHub에서 repo를 가져오되, 머신 고유값은 로컬 service 설정에만 주입해야 합니다
+- 설치 완료 선언 전에는 반드시 `scripts/verify_deployment.py` 로 health 검증을 통과해야 합니다
 
 ### 설치 단계
 

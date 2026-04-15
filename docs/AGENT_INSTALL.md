@@ -46,6 +46,35 @@ cd "$HOME/openclaw-telegram-miniapp"
 git pull --ff-only origin main
 ```
 
+## 3-1. Automated install path
+
+This repository now includes:
+
+- `requirements.txt`
+- `scripts/install.sh`
+- `scripts/verify_deployment.py`
+
+Recommended agent flow:
+
+```bash
+cd "$HOME/openclaw-telegram-miniapp"
+./scripts/install.sh \
+  --miniapp-public-origin "https://miniapp.example.com" \
+  --telegram-bot-token "$TELEGRAM_BOT_TOKEN" \
+  --telegram-owner-id "$TELEGRAM_OWNER_ID" \
+  --openclaw-base-url "$OPENCLAW_BASE_URL" \
+  --openclaw-gateway-token "$OPENCLAW_GATEWAY_TOKEN"
+
+./.venv/bin/python ./scripts/verify_deployment.py --env-file .generated/miniapp.env
+```
+
+The install script:
+- creates `.venv`
+- installs Python dependencies
+- writes `.generated/miniapp.env`
+- writes a generated runner script
+- can install a launchd or systemd user service
+
 ## 4. Environment baseline
 
 Start from `.env.example` and translate the values into the target service manager or shell environment.
@@ -73,26 +102,15 @@ Choose one service strategy and keep it explicit.
 
 ### macOS launchd
 
-Use:
-- `launchd/ai.openclaw.miniapp-bridge.plist`
-- `bridge/run_bridge.sh`
-
-Agent actions:
-1. Replace hardcoded paths with the actual repo path and home path.
-2. Set `SECRETS_FILE` if secret extraction is used.
-3. Set `TELEGRAM_OWNER_ID` and `MINIAPP_PUBLIC_ORIGIN`.
-4. Install the plist into `~/Library/LaunchAgents/`.
-5. Run `launchctl bootstrap` and `launchctl kickstart`.
+Use either:
+- generated install via `scripts/install.sh --service launchd`
+- or manual templates `launchd/ai.openclaw.miniapp-bridge.plist` and `bridge/run_bridge.sh`
 
 ### Linux systemd
 
-Use:
-- `systemd/openclaw-miniapp-bridge.service`
-
-Agent actions:
-1. Copy the service file into the systemd user or system directory.
-2. Add environment values or use an EnvironmentFile.
-3. Enable and start the unit.
+Use either:
+- generated install via `scripts/install.sh --service systemd-user`
+- or manual template `systemd/openclaw-miniapp-bridge.service`
 
 ## 6. Minimal verification steps
 
