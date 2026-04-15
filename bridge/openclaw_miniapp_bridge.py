@@ -104,8 +104,15 @@ ACTION_RUNNERS = {
 }
 
 
+def _mark_response(handler, status, body_len=0, content_type=''):
+    handler._response_status = status
+    handler._response_length = body_len
+    handler._response_content_type = content_type
+
+
 def json_response(handler, status, payload):
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    _mark_response(handler, status, len(body), 'application/json; charset=utf-8')
     handler.send_response(status)
     apply_cors(handler)
     handler.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -117,6 +124,7 @@ def json_response(handler, status, payload):
 
 def text_response(handler, status, text):
     body = text.encode('utf-8')
+    _mark_response(handler, status, len(body), 'text/plain; charset=utf-8')
     handler.send_response(status)
     apply_cors(handler)
     handler.send_header('Content-Type', 'text/plain; charset=utf-8')
@@ -965,6 +973,52 @@ def _extract_bearer_token(handler):
     return ''
 
 
+def _request_auth_kind(handler):
+    if (handler.headers.get('X-Telegram-Init-Data') or '').strip():
+        return 'telegram'
+    if _extract_bearer_token(handler):
+        return 'bearer'
+    return 'none'
+
+
+def _log_event(event, **fields):
+    payload = {
+        'ts': datetime.now(timezone.utc).isoformat(),
+        'event': event,
+        **fields,
+    }
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+
+
+def _validate_startup_config():
+    errors = []
+    warnings = []
+    parsed_backend = urlparse(BACKEND_BASE)
+    if not INDEX_HTML.exists():
+        errors.append(f'missing index.html at {INDEX_HTML}')
+    if parsed_backend.scheme not in {'http', 'https'} or not parsed_backend.netloc:
+        errors.append('OPENCLAW_BASE_URL must be a full http(s) URL')
+    if not TELEGRAM_OWNER_IDS:
+        errors.append('set TELEGRAM_OWNER_ID or TELEGRAM_OWNER_IDS')
+    if not TELEGRAM_BOT_TOKEN and not TELEGRAM_BOT_TOKENS:
+        errors.append('set TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKENS')
+    if PUBLIC_ORIGIN:
+        parsed_origin = urlparse(PUBLIC_ORIGIN)
+        host = parsed_origin.hostname or ''
+        is_local = host in {'127.0.0.1', 'localhost'}
+        if parsed_origin.scheme not in {'http', 'https'} or not parsed_origin.netloc:
+            errors.append('MINIAPP_PUBLIC_ORIGIN must be a full http(s) URL')
+        elif parsed_origin.scheme != 'https' and not is_local:
+            errors.append('MINIAPP_PUBLIC_ORIGIN must use https outside localhost')
+    else:
+        warnings.append('MINIAPP_PUBLIC_ORIGIN is empty, public origin diagnostics will be limited')
+    if AUTH_DEBUG:
+        warnings.append('MINIAPP_AUTH_DEBUG is enabled, disable it for production')
+    if not BACKEND_BEARER:
+        warnings.append('OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD is not set, backend proxy auth may fail depending on gateway config')
+    return errors, warnings
+
+
 def _cleanup_browser_sessions(now=None):
     now = now or time.time()
     expired = [token for token, meta in BROWSER_SESSIONS.items() if (meta.get('expires_at') or 0) <= now]
@@ -1234,10 +1288,42 @@ def subagent_action(body, session_id=None, status=None):
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
+    def _begin_request(self):
+        self._request_started_at = time.time()
+        self._request_id = (self.headers.get('X-Request-Id') or '').strip() or uuid.uuid4().hex[:12]
+        self._response_status = None
+        self._response_length = 0
+        self._response_content_type = ''
+
+    def _finish_request_log(self, error=None):
+        duration_ms = int((time.time() - getattr(self, '_request_started_at', time.time())) * 1000)
+        _log_event(
+            'http_request',
+            request_id=getattr(self, '_request_id', ''),
+            method=getattr(self, 'command', ''),
+            path=(self.path or '').split('?', 1)[0],
+            status=self._response_status or 0,
+            duration_ms=duration_ms,
+            response_bytes=self._response_length or 0,
+            content_type=self._response_content_type or '',
+            auth_kind=_request_auth_kind(self),
+            origin=_masked_origin(self),
+            ua=_masked_user_agent(self),
+            error=(type(error).__name__ if error else ''),
+        )
+
+    def log_message(self, format, *args):
+        return
+
     def do_OPTIONS(self):
-        self.send_response(204)
-        apply_cors(self)
-        self.end_headers()
+        self._begin_request()
+        try:
+            _mark_response(self, 204, 0, '')
+            self.send_response(204)
+            apply_cors(self)
+            self.end_headers()
+        finally:
+            self._finish_request_log()
 
     def handle_exception(self, error):
         if isinstance(error, RuntimeError) and str(error) == 'Unauthorized':
@@ -1247,6 +1333,8 @@ class Handler(BaseHTTPRequestHandler):
         return json_response(self, 500, {'error': {'message': str(error)}})
 
     def do_GET(self):
+        self._begin_request()
+        error = None
         try:
             if self.path in ('/', '/index.html'):
                 return self.serve_file(INDEX_HTML)
@@ -1286,9 +1374,14 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, get_job(job_id))
             return text_response(self, 404, 'not found')
         except Exception as e:
+            error = e
             return self.handle_exception(e)
+        finally:
+            self._finish_request_log(error)
 
     def do_POST(self):
+        self._begin_request()
+        error = None
         try:
             if self.path == '/v1/chat/completions':
                 self.require_auth()
@@ -1334,9 +1427,14 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, cron_action(job_id, 'resume'))
             return text_response(self, 404, 'not found')
         except Exception as e:
+            error = e
             return self.handle_exception(e)
+        finally:
+            self._finish_request_log(error)
 
     def do_PATCH(self):
+        self._begin_request()
+        error = None
         try:
             self.require_auth()
             if self.path.startswith('/api/jobs/'):
@@ -1345,9 +1443,14 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, patch_job(job_id, body))
             return text_response(self, 404, 'not found')
         except Exception as e:
+            error = e
             return self.handle_exception(e)
+        finally:
+            self._finish_request_log(error)
 
     def do_DELETE(self):
+        self._begin_request()
+        error = None
         try:
             self.require_auth()
             if self.path.startswith('/api/jobs/'):
@@ -1355,7 +1458,10 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, delete_job(job_id))
             return text_response(self, 404, 'not found')
         except Exception as e:
+            error = e
             return self.handle_exception(e)
+        finally:
+            self._finish_request_log(error)
 
     def require_auth(self):
         if not auth_ok(self):
@@ -1379,6 +1485,7 @@ class Handler(BaseHTTPRequestHandler):
     def serve_file(self, path: Path):
         data = path.read_bytes()
         ctype = mimetypes.guess_type(str(path))[0] or 'text/html'
+        _mark_response(self, 200, len(data), f'{ctype}; charset=utf-8')
         self.send_response(200)
         apply_cors(self)
         self.send_header('Content-Type', f'{ctype}; charset=utf-8')
@@ -1401,9 +1508,11 @@ class Handler(BaseHTTPRequestHandler):
         conn.request(method, path, headers=headers)
         resp = conn.getresponse()
         data = resp.read()
+        content_type = resp.getheader('Content-Type', 'application/json')
+        _mark_response(self, resp.status, len(data), content_type)
         self.send_response(resp.status)
         apply_cors(self)
-        self.send_header('Content-Type', resp.getheader('Content-Type', 'application/json'))
+        self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -1429,23 +1538,36 @@ class Handler(BaseHTTPRequestHandler):
                 }
             }
             return json_response(self, 404, data)
+        content_type = resp.getheader('Content-Type', 'text/event-stream')
+        _mark_response(self, resp.status, 0, content_type)
         self.send_response(resp.status)
         apply_cors(self)
-        self.send_header('Content-Type', resp.getheader('Content-Type', 'text/event-stream'))
+        self.send_header('Content-Type', content_type)
         if resp.getheader('x-openclaw-session-id'):
             self.send_header('x-openclaw-session-id', resp.getheader('x-openclaw-session-id'))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Connection', 'close')
         self.end_headers()
+        total = 0
         while True:
             chunk = resp.read(4096)
             if not chunk:
                 break
+            total += len(chunk)
             self.wfile.write(chunk)
             self.wfile.flush()
+        self._response_length = total
 
 
 if __name__ == '__main__':
+    errors, warnings = _validate_startup_config()
+    for warning in warnings:
+        _log_event('startup_warning', message=warning)
+    if errors:
+        for error in errors:
+            _log_event('startup_error', message=error)
+        raise SystemExit(1)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
+    _log_event('startup', host=HOST, port=PORT, backend_base=BACKEND_BASE, public_origin=PUBLIC_ORIGIN or '', auth_debug=AUTH_DEBUG)
     print(f'OpenClaw mini app bridge on http://{HOST}:{PORT} -> {BACKEND_BASE}', file=sys.stderr)
     server.serve_forever()
