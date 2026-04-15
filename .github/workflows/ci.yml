@@ -23,5 +23,13 @@ jobs:
 
       - name: Run repository checks
         run: |
-          chmod +x scripts/check_repo.sh scripts/install.sh scripts/verify_deployment.py
+          chmod +x scripts/check_repo.sh scripts/install.sh scripts/verify_deployment.py scripts/smoke_install.sh
           ./scripts/check_repo.sh
+
+      - name: Run unattended install smoke test
+        run: |
+          ./scripts/smoke_install.sh
+
+      - name: Build Docker image
+        run: |
+          docker build -t openclaw-telegram-miniapp:ci .

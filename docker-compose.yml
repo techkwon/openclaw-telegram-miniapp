@@ -1,0 +1,16 @@
+services:
+  openclaw-miniapp-bridge:
+    build: .
+    container_name: openclaw-miniapp-bridge
+    ports:
+      - "8765:8765"
+    environment:
+      MINIAPP_HOST: 0.0.0.0
+      MINIAPP_PORT: 8765
+      OPENCLAW_BASE_URL: http://host.docker.internal:18789
+      MINIAPP_PUBLIC_ORIGIN: https://miniapp.example.com
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_OWNER_ID: ${TELEGRAM_OWNER_ID}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      MINIAPP_AUTH_DEBUG: "false"
+    restart: unless-stopped

@@ -146,10 +146,12 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 3. [`scripts/install.sh`](scripts/install.sh)
 4. [`scripts/verify_deployment.py`](scripts/verify_deployment.py)
 5. [`scripts/check_repo.sh`](scripts/check_repo.sh)
-6. [`.env.example`](.env.example)
-7. [`requirements.txt`](requirements.txt)
-8. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
-9. [`Dockerfile`](Dockerfile)
+6. [`scripts/smoke_install.sh`](scripts/smoke_install.sh)
+7. [`.env.example`](.env.example)
+8. [`requirements.txt`](requirements.txt)
+9. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
+10. [`Dockerfile`](Dockerfile)
+11. [`docker-compose.yml`](docker-compose.yml)
 
 핵심 원칙:
 - repo에는 **문서, 템플릿, 설치 스크립트, 예시 설정**만 둡니다
@@ -157,6 +159,7 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 - 에이전트는 GitHub에서 repo를 가져오되, 머신 고유값은 로컬 service 설정에만 주입해야 합니다
 - 설치 완료 선언 전에는 반드시 `scripts/verify_deployment.py` 로 health 검증을 통과해야 합니다
 - PR이나 push 전에는 `scripts/check_repo.sh` 와 GitHub Actions CI가 같은 기본 검증을 수행합니다
+- CI는 unattended install smoke test와 Docker image build까지 검증합니다
 
 ### 설치 단계
 
@@ -250,7 +253,9 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 
 - GitHub Actions CI: `.github/workflows/ci.yml`
 - 공통 체크 스크립트: `scripts/check_repo.sh`
+- unattended install smoke test: `scripts/smoke_install.sh`
 - 컨테이너 이미지 빌드 경로: `Dockerfile`
+- 컨테이너 실행 예시: `docker-compose.yml`
 
 빠른 로컬 체크:
 
@@ -262,6 +267,12 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 
 ```bash
 docker build -t openclaw-telegram-miniapp .
+```
+
+빠른 compose 실행 예시:
+
+```bash
+docker compose up -d --build
 ```
 
 ## Production 체크리스트

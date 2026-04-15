@@ -86,8 +86,26 @@ Never commit:
 - `scripts/install.sh`
 - `scripts/verify_deployment.py`
 - `scripts/check_repo.sh`
+- `scripts/smoke_install.sh`
 - `.github/workflows/ci.yml`
 - `Dockerfile`
+- `docker-compose.yml`
+
+## Container deployment example
+
+Quick example:
+
+```bash
+docker compose up -d --build
+```
+
+Expected local endpoint:
+
+```bash
+curl http://127.0.0.1:8765/health
+```
+
+The compose file is an example and still expects machine-local secrets via environment variables.
 
 ## Service files included in this repo
 
@@ -116,6 +134,15 @@ Also verify:
 - Mini App URL in Telegram matches the public origin
 - OpenClaw Gateway chat endpoint is enabled
 - bridge logs do not show startup validation failure
+
+## Reproducibility note
+
+CI now checks three layers:
+- repository syntax and local checks
+- unattended install smoke test via `scripts/smoke_install.sh`
+- Docker image build
+
+This does not replace a real production deploy, but it closes most of the earlier reproducibility gap.
 
 ## Suggested agent success criteria
 

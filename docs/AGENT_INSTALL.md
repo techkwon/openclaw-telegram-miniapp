@@ -53,6 +53,8 @@ This repository now includes:
 - `requirements.txt`
 - `scripts/install.sh`
 - `scripts/verify_deployment.py`
+- `scripts/check_repo.sh`
+- `scripts/smoke_install.sh`
 
 Recommended agent flow:
 
@@ -74,6 +76,10 @@ The install script:
 - writes `.generated/miniapp.env`
 - writes a generated runner script
 - can install a launchd or systemd user service
+
+Extra verification helpers:
+- `scripts/check_repo.sh` validates repository-level checks
+- `scripts/smoke_install.sh` simulates a fresh unattended install in a temporary directory
 
 ## 4. Environment baseline
 
