@@ -1625,8 +1625,8 @@ function showTokenGate() {
 function hideTokenGate() {
   document.getElementById('token-gate').style.display = 'none';
 }
-function wrapStoredToken(token) {
-  return JSON.stringify({ token, savedAt: Date.now(), expiresAt: Date.now() + BROWSER_TOKEN_TTL_MS });
+function wrapStoredToken(token, expiresAt = null) {
+  return JSON.stringify({ token, savedAt: Date.now(), expiresAt: expiresAt || (Date.now() + BROWSER_TOKEN_TTL_MS) });
 }
 function unwrapStoredToken(raw) {
   if (!raw) return null;
@@ -1653,25 +1653,23 @@ async function submitToken() {
   btn.disabled = true;
   btn.textContent = '확인 중...';
   err.style.display = 'none';
-  // Test the token by hitting /api/debug-auth (which does NOT enforce auth)
-  // to confirm the gateway is reachable, then verify the token via /api/commands
   try {
-    // First verify gateway is reachable
     const health = await fetchWithTimeout(API + '/health', { timeout: 5000 });
     if (!health.ok) throw new Error('Gateway에 연결할 수 없습니다');
 
-    // Then verify the token by calling /api/commands with ONLY Bearer auth
-    // (no Telegram initData — this forces true Bearer token validation)
-    const r = await fetchWithTimeout(API + '/api/commands', {
+    const r = await fetchWithTimeout(API + '/api/auth/session', {
+      method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
-        'X-Telegram-Init-Data': '',  // empty = no Telegram HMAC
+        'X-Telegram-Init-Data': '',
       },
       timeout: 8000,
     });
     if (r.ok) {
-      apiToken = token;
-      const wrapped = wrapStoredToken(token);
+      const session = await r.json().catch(() => ({}));
+      apiToken = session?.token || token;
+      const expiresAt = session?.expires_at ? Number(session.expires_at) * 1000 : null;
+      const wrapped = wrapStoredToken(apiToken, expiresAt);
       if (CS) { try { await CS.setItem('openclaw_api_token', wrapped); } catch (_) {} }
       try { localStorage.setItem('openclaw_api_token', wrapped); } catch (_) {}
       hideTokenGate();
@@ -1826,6 +1824,10 @@ async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : null,
   });
   if (!r.ok) {
+    if (r.status === 401 && !isTelegram) {
+      await clearStoredApiToken();
+      showTokenGate();
+    }
     const ct = r.headers.get('content-type') || '';
     if (ct.includes('application/json')) {
       const j = await r.json().catch(() => ({}));

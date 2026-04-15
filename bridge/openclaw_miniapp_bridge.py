@@ -47,6 +47,7 @@ AUTH_DEBUG = os.environ.get('MINIAPP_AUTH_DEBUG', '').strip().lower() in {'1', '
 RATE_LIMIT_WINDOW_SECONDS = max(1, int(os.environ.get('MINIAPP_RATE_LIMIT_WINDOW_SECONDS', '60')))
 RATE_LIMIT_MAX_REQUESTS = max(10, int(os.environ.get('MINIAPP_RATE_LIMIT_MAX_REQUESTS', '180')))
 RATE_LIMIT_ACTION_MAX_REQUESTS = max(3, int(os.environ.get('MINIAPP_RATE_LIMIT_ACTION_MAX_REQUESTS', '12')))
+BROWSER_SESSION_TTL_SECONDS = max(300, int(os.environ.get('MINIAPP_BROWSER_SESSION_TTL_SECONDS', '1800')))
 DEFAULT_AGENT = os.environ.get('OPENCLAW_AGENT_ID', 'main')
 DEFAULT_CHANNEL = os.environ.get('OPENCLAW_MESSAGE_CHANNEL', 'telegram')
 TELEGRAM_ED25519_PUBLIC_KEY_PROD = bytes.fromhex('e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d')
@@ -55,6 +56,7 @@ BRIDGE_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_BRIDGE_ERR_LOG_PATH') or str(
 CLOUDFLARED_OUT_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_OUT_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.out.log'))
 CLOUDFLARED_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_ERR_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.err.log'))
 RATE_LIMITS = defaultdict(lambda: deque())
+BROWSER_SESSIONS = {}
 
 COMMANDS = [
     {'name': 'help', 'description': '미니앱에서 지원하는 명령 보기', 'category': 'core'},
@@ -954,6 +956,52 @@ def _auth_debug_log(reason, handler, auth='', tg_init=''):
     )
 
 
+def _extract_bearer_token(handler):
+    auth = handler.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        return auth.removeprefix('Bearer ').strip()
+    return ''
+
+
+def _cleanup_browser_sessions(now=None):
+    now = now or time.time()
+    expired = [token for token, meta in BROWSER_SESSIONS.items() if (meta.get('expires_at') or 0) <= now]
+    for token in expired:
+        BROWSER_SESSIONS.pop(token, None)
+
+
+def _issue_browser_session(subject='browser'):
+    now = time.time()
+    _cleanup_browser_sessions(now)
+    token = 'miniapp_' + uuid.uuid4().hex + uuid.uuid4().hex
+    expires_at = now + BROWSER_SESSION_TTL_SECONDS
+    BROWSER_SESSIONS[token] = {
+        'subject': subject,
+        'issued_at': now,
+        'expires_at': expires_at,
+    }
+    return {
+        'token': token,
+        'issued_at': int(now),
+        'expires_at': int(expires_at),
+        'ttl_seconds': BROWSER_SESSION_TTL_SECONDS,
+    }
+
+
+def _validate_browser_session(token):
+    if not token:
+        return False
+    now = time.time()
+    _cleanup_browser_sessions(now)
+    meta = BROWSER_SESSIONS.get(token)
+    if not meta:
+        return False
+    if (meta.get('expires_at') or 0) <= now:
+        BROWSER_SESSIONS.pop(token, None)
+        return False
+    return True
+
+
 def _rate_limit_key(handler):
     tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
     if tg_init:
@@ -967,11 +1015,11 @@ def _rate_limit_key(handler):
                     return 'tg:' + user_id
         except Exception:
             pass
-    auth = handler.headers.get('Authorization', '')
-    if auth.startswith('Bearer '):
-        token = auth.removeprefix('Bearer ').strip()
-        if token:
-            return 'bearer:' + hashlib.sha256(token.encode('utf-8')).hexdigest()[:16]
+    token = _extract_bearer_token(handler)
+    if token:
+        if _validate_browser_session(token):
+            return 'session:' + hashlib.sha256(token.encode('utf-8')).hexdigest()[:16]
+        return 'bearer:' + hashlib.sha256(token.encode('utf-8')).hexdigest()[:16]
     client_ip = getattr(handler, 'client_address', ['unknown'])[0]
     return 'ip:' + str(client_ip)
 
@@ -996,15 +1044,18 @@ def self_path_is_action(path):
 def auth_ok(handler):
     tg_init = (handler.headers.get('X-Telegram-Init-Data') or '').strip()
     auth = handler.headers.get('Authorization', '')
+    bearer = _extract_bearer_token(handler)
     if tg_init:
         ok = validate_telegram_init_data(tg_init)
         if not ok:
             _auth_debug_log('invalid telegram initData', handler, auth=auth, tg_init=tg_init)
         return ok
+    if bearer and _validate_browser_session(bearer):
+        return True
     if not SHARED_TOKEN:
         _auth_debug_log('no telegram initData and no shared token', handler, auth=auth, tg_init=tg_init)
         return False
-    if auth.startswith('Bearer ') and auth.removeprefix('Bearer ').strip() == SHARED_TOKEN:
+    if bearer and bearer == SHARED_TOKEN:
         return True
     _auth_debug_log('bearer mismatch or missing', handler, auth=auth, tg_init=tg_init)
     return False
@@ -1204,6 +1255,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.proxy_stream()
             self.require_auth()
             body = self.read_json()
+            if self.path == '/api/auth/session':
+                if not auth_ok(self):
+                    raise RuntimeError('Unauthorized')
+                _enforce_rate_limit(self)
+                session = _issue_browser_session(subject='browser-fallback')
+                return json_response(self, 200, {'ok': True, 'token': session['token'], 'issued_at': session['issued_at'], 'expires_at': session['expires_at'], 'ttl_seconds': session['ttl_seconds']})
             if self.path == '/api/command':
                 output = command_output(body.get('command'), body.get('args'))
                 return json_response(self, 200, {'output': output})
