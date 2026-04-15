@@ -26,6 +26,12 @@ Telegram 안에서 OpenClaw를 더 빠르고 가볍게 다루기 위한 **한국
 **OpenClaw용 Telegram Mini App companion**입니다.
 채팅만 붙인 데모가 아니라, 모바일에서 OpenClaw의 **chat, status, sessions, agents, cron**을 바로 확인하고 다룰 수 있게 만드는 쪽에 초점을 두고 있습니다.
 
+## 미리 보기
+
+| Terminal | Status | Settings |
+|---|---|---|
+| ![Terminal](docs/assets/miniapp-terminal.png) | ![Status](docs/assets/miniapp-status.png) | ![Settings](docs/assets/miniapp-settings.png) |
+
 ## 왜 이 리포를 봐야 하나요?
 
 이 포크는 아래 같은 OpenClaw 사용자에게 특히 잘 맞습니다.
