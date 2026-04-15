@@ -1481,6 +1481,7 @@ let recoveryHistoryFilter = 'all';
 let actionBusy = false;
 let actionBusyKey = '';
 let browserSessionRefreshTimer = null;
+let browserSessionRefreshPromise = null;
 let currentMainButtonHandler = null;
 let biometricReady = false;
 let runCatTimer = null;
@@ -1658,6 +1659,19 @@ function scheduleBrowserSessionRefresh(expiresAt) {
     refreshBrowserSession().catch(() => {});
   }, wait);
 }
+async function persistStoredApiToken(token, expiresAt = null) {
+  const wrapped = wrapStoredToken(token, expiresAt);
+  const errors = [];
+  if (CS) {
+    try { await CS.setItem('openclaw_api_token', wrapped); } catch (e) { errors.push(e); }
+  }
+  try { localStorage.setItem('openclaw_api_token', wrapped); } catch (e) { errors.push(e); }
+  if (errors.length) {
+    try { if (CS) await CS.deleteItem?.('openclaw_api_token'); } catch (_) {}
+    try { localStorage.removeItem('openclaw_api_token'); } catch (_) {}
+    throw errors[0];
+  }
+}
 async function clearStoredApiToken(callRevoke = false) {
   const currentToken = apiToken;
   apiToken = null;
@@ -1677,26 +1691,47 @@ async function logoutBrowserSession() {
   showTokenGate();
   toast('브라우저 세션을 종료했어요', 1600, true);
 }
-async function refreshBrowserSession() {
+async function refreshBrowserSession(retries = 2) {
   if (isTelegram || !apiToken) return false;
-  const r = await fetchWithTimeout(API + '/api/auth/refresh', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + apiToken, 'X-Telegram-Init-Data': '' },
-    timeout: 8000,
-  });
-  if (!r.ok) {
+  if (browserSessionRefreshPromise) return browserSessionRefreshPromise;
+  browserSessionRefreshPromise = (async () => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const r = await fetchWithTimeout(API + '/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + apiToken, 'X-Telegram-Init-Data': '' },
+          timeout: 8000,
+        });
+        if (!r.ok) {
+          if (r.status === 401) break;
+          throw new Error('HTTP ' + r.status);
+        }
+        const session = await r.json().catch(() => ({}));
+        apiToken = session?.token || apiToken;
+        const expiresAt = session?.expires_at ? Number(session.expires_at) * 1000 : (Date.now() + BROWSER_TOKEN_TTL_MS);
+        await persistStoredApiToken(apiToken, expiresAt);
+        scheduleBrowserSessionRefresh(expiresAt);
+        return true;
+      } catch (e) {
+        lastError = e;
+        if (attempt < retries) {
+          await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+          continue;
+        }
+      }
+      break;
+    }
     await clearStoredApiToken();
     showTokenGate();
+    if (lastError) throw lastError;
     return false;
+  })();
+  try {
+    return await browserSessionRefreshPromise;
+  } finally {
+    browserSessionRefreshPromise = null;
   }
-  const session = await r.json().catch(() => ({}));
-  apiToken = session?.token || apiToken;
-  const expiresAt = session?.expires_at ? Number(session.expires_at) * 1000 : (Date.now() + BROWSER_TOKEN_TTL_MS);
-  const wrapped = wrapStoredToken(apiToken, expiresAt);
-  if (CS) { try { await CS.setItem('openclaw_api_token', wrapped); } catch (_) {} }
-  try { localStorage.setItem('openclaw_api_token', wrapped); } catch (_) {}
-  scheduleBrowserSessionRefresh(expiresAt);
-  return true;
 }
 async function submitToken() {
   const input = document.getElementById('token-input');
@@ -1723,9 +1758,7 @@ async function submitToken() {
       const session = await r.json().catch(() => ({}));
       apiToken = session?.token || token;
       const expiresAt = session?.expires_at ? Number(session.expires_at) * 1000 : null;
-      const wrapped = wrapStoredToken(apiToken, expiresAt);
-      if (CS) { try { await CS.setItem('openclaw_api_token', wrapped); } catch (_) {} }
-      try { localStorage.setItem('openclaw_api_token', wrapped); } catch (_) {}
+      await persistStoredApiToken(apiToken, expiresAt);
       scheduleBrowserSessionRefresh(expiresAt);
       hideTokenGate();
       initAfterAuth();

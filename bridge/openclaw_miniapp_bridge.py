@@ -57,6 +57,8 @@ CLOUDFLARED_OUT_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_OUT_LOG_PATH
 CLOUDFLARED_ERR_LOG_PATH = Path(os.environ.get('MINIAPP_CLOUDFLARED_ERR_LOG_PATH') or str(Path.home() / 'Library' / 'Logs' / 'com.cloudflare.cloudflared.err.log'))
 RATE_LIMITS = defaultdict(lambda: deque())
 BROWSER_SESSIONS = {}
+BROWSER_SESSION_REFRESH_CACHE = {}
+BROWSER_SESSION_REFRESH_LOCKS = set()
 
 COMMANDS = [
     {'name': 'help', 'description': '미니앱에서 지원하는 명령 보기', 'category': 'core'},
@@ -968,6 +970,9 @@ def _cleanup_browser_sessions(now=None):
     expired = [token for token, meta in BROWSER_SESSIONS.items() if (meta.get('expires_at') or 0) <= now]
     for token in expired:
         BROWSER_SESSIONS.pop(token, None)
+    expired_refresh = [token for token, meta in BROWSER_SESSION_REFRESH_CACHE.items() if (meta.get('expires_at') or 0) <= now]
+    for token in expired_refresh:
+        BROWSER_SESSION_REFRESH_CACHE.pop(token, None)
 
 
 def _issue_browser_session(subject='browser'):
@@ -1007,16 +1012,33 @@ def _validate_browser_session(token):
 
 
 def _refresh_browser_session(token):
+    now = time.time()
+    _cleanup_browser_sessions(now)
+    cached = BROWSER_SESSION_REFRESH_CACHE.get(token)
+    if cached and (cached.get('expires_at') or 0) > now:
+        return cached.get('session')
+    if token in BROWSER_SESSION_REFRESH_LOCKS:
+        return cached.get('session') if cached else None
     meta = _browser_session_meta(token)
     if not meta:
         return None
-    BROWSER_SESSIONS.pop(token, None)
-    return _issue_browser_session(subject=meta.get('subject') or 'browser')
+    BROWSER_SESSION_REFRESH_LOCKS.add(token)
+    try:
+        BROWSER_SESSIONS.pop(token, None)
+        session = _issue_browser_session(subject=meta.get('subject') or 'browser')
+        BROWSER_SESSION_REFRESH_CACHE[token] = {
+            'session': session,
+            'expires_at': now + 30,
+        }
+        return session
+    finally:
+        BROWSER_SESSION_REFRESH_LOCKS.discard(token)
 
 
 def _revoke_browser_session(token):
     if not token:
         return False
+    BROWSER_SESSION_REFRESH_CACHE.pop(token, None)
     return BROWSER_SESSIONS.pop(token, None) is not None
 
 
