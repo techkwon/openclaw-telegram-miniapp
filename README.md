@@ -135,6 +135,22 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 - ✅ Telegram 사용자 ID (@userinfobot에서 확인)
 - ✅ 도메인 (Cloudflare Tunnel용)
 
+## 에이전트 설치 경로
+
+이 저장소는 이제 **GitHub를 source of truth로 두고, OpenClaw 에이전트가 직접 clone / update / install** 할 수 있는 형태를 목표로 정리하고 있습니다.
+
+에이전트나 자동화 설치 경로에서 먼저 읽을 문서:
+
+1. [`docs/AGENT_INSTALL.md`](docs/AGENT_INSTALL.md)
+2. [`docs/GITHUB_DEPLOYMENT.md`](docs/GITHUB_DEPLOYMENT.md)
+3. [`.env.example`](.env.example)
+4. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
+
+핵심 원칙:
+- repo에는 **문서, 템플릿, 예시 설정**만 둡니다
+- 실제 token, password, secrets store는 **로컬 머신에만 둡니다**
+- 에이전트는 GitHub에서 repo를 가져오되, 머신 고유값은 로컬 service 설정에만 주입해야 합니다
+
 ### 설치 단계
 
 1. **리포지토리 클론**
@@ -283,6 +299,8 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 
 - `bridge/openclaw_miniapp_bridge.py` - OpenClaw 연결 핵심 bridge
 - `index.html` - Mini App 프런트엔드
+- `docs/AGENT_INSTALL.md` - OpenClaw 에이전트용 설치 가이드
+- `docs/GITHUB_DEPLOYMENT.md` - GitHub-only 배포 가이드
 - `OPERATIONS_CHECKLIST.md` - 장애 대응 체크리스트
 - `tunnel/cloudflared-config.yml` - Cloudflare Tunnel 예시 설정
 - `launchd/ai.openclaw.miniapp-bridge.plist` - macOS launchd 예시
