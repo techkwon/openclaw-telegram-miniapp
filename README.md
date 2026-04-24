@@ -2,29 +2,79 @@
 
 <div align="center">
 
-![OpenClaw Telegram Mini App](https://img.shields.io/badge/OpenClaw-Mini%20App-6366f1?style=for-the-badge&logo=telegram&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.2-brightgreen?style=for-the-badge)
+![OpenClaw Telegram Mini App](https://img.shields.io/badge/OpenClaw-Telegram%20Mini%20App-6366f1?style=for-the-badge&logo=telegram&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.1.0-brightgreen?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/platform-Telegram%20WebApp-blue?style=for-the-badge)
 
-**🚀 Telegram에서 바로 사용하는 OpenClaw 제어 센터**
+**Telegram 안에서 쓰는 OpenClaw 모바일 운영 패널**
 
-간편한 채팅, 크론 작업 관리, 시스템 모니터링까지 - 모든 것을 Telegram 안에서
+채팅, 상태 확인, 세션, 에이전트, 크론, 맥미니 시스템 모니터링까지 — OpenClaw를 손 안에서 가볍게 다룹니다.
 
 </div>
 
 ---
 
-Telegram 안에서 OpenClaw를 더 빠르고 가볍게 다루기 위한 **한국어 Telegram Mini App 포크**입니다.
-원본 프로젝트인 [clawvader-tech/hermes-telegram-miniapp](https://github.com/clawvader-tech/hermes-telegram-miniapp)을 바탕으로 OpenClaw 환경에 맞게 포팅했고, 원본의 MIT 라이선스를 그대로 유지합니다.
+## 소개
 
-먼저, 훌륭한 기반 프로젝트를 공개해 준 원작자에게 감사드립니다.
-이 포크는 원작의 방향성과 장점을 존중하면서, OpenClaw에서 바로 쓸 수 있는 실용적인 형태로 다듬는 것을 목표로 합니다.
+**OpenClaw Telegram Mini App**은 Telegram Mini App 안에서 OpenClaw를 제어하고 모니터링하기 위한 한국어 중심 companion UI입니다.
 
-## ✨ 한 줄 소개
+이 저장소는 [clawvader-tech/hermes-telegram-miniapp](https://github.com/clawvader-tech/hermes-telegram-miniapp)을 기반으로 만든 OpenClaw 포크입니다. 원본 프로젝트의 좋은 UX와 MIT 라이선스를 존중하며, OpenClaw Gateway와 운영 흐름에 맞도록 bridge, 인증, 세션, 크론, 시스템 상태 기능을 다시 연결했습니다.
 
-**OpenClaw용 Telegram Mini App companion**입니다.
-채팅만 붙인 데모가 아니라, 모바일에서 OpenClaw의 **chat, status, sessions, agents, cron**을 바로 확인하고 다룰 수 있게 만드는 쪽에 초점을 두고 있습니다.
+원작자에게 감사드립니다. 이 포크는 원본을 대체하려는 프로젝트가 아니라, **OpenClaw 환경에서 바로 실사용 가능한 Telegram Mini App companion**으로 발전시키는 것을 목표로 합니다.
+
+## 핵심 기능
+
+### 1. Terminal
+
+- Telegram 안에서 OpenClaw와 바로 대화
+- `/command` 기반 빠른 운영 명령
+- 모델 / 컨텍스트 / 토큰 사용량 표시
+- 파일 첨부 UI와 빠른 프롬프트 버튼
+
+### 2. Status
+
+- OpenClaw Gateway 연결 상태
+- 활성 작업 / 세션 수 / 최근 오류 표시
+- Cloudflare Tunnel, public origin, bridge diagnostics
+- 브리지 / 게이트웨이 복구 액션
+
+### 3. System
+
+맥미니나 self-hosted 머신 상태를 Mini App에서 바로 확인합니다.
+
+- CPU / 메모리 / 디스크 사용률 카드
+- macOS / Apple Silicon / uptime 표시
+- OpenClaw 운영 상태 카드
+  - Gateway
+  - Bridge
+  - Tunnel
+  - Public origin
+- 실행 중인 앱 목록
+- CPU 사용량 상위 프로세스 목록
+- 보호 로직이 있는 프로세스 종료 버튼
+- bridge / cloudflared 최근 오류 요약
+
+> Kill 기능은 편의를 위한 운영 보조 기능입니다. `openclaw-gateway`, bridge, launchd, system daemon, 다른 사용자 프로세스는 보호 처리합니다.
+
+### 4. Agents
+
+- OpenClaw agent / heartbeat 상태 확인
+- subagent 목록 확인
+- subagent steer / kill 액션 연결
+
+### 5. Sessions
+
+- 최근 세션 목록 보기
+- 세션 상태 / 요약 / 기록 확인
+- 특정 세션에 메시지 보내기
+- 새 explicit session 생성
+
+### 6. Cron
+
+- OpenClaw cron 작업 목록
+- 작업 생성 / 수정 / 실행 / 일시중지 / 재개 / 삭제
+- Telegram 안에서 반복 작업을 빠르게 관리
 
 ## 미리 보기
 
@@ -32,206 +82,106 @@ Telegram 안에서 OpenClaw를 더 빠르고 가볍게 다루기 위한 **한국
 |---|---|---|
 | ![Terminal](docs/assets/miniapp-terminal.png) | ![Status](docs/assets/miniapp-status.png) | ![Settings](docs/assets/miniapp-settings.png) |
 
-## 왜 이 리포를 봐야 하나요?
+> System 탭 스크린샷은 추후 추가 예정입니다.
 
-이 포크는 아래 같은 OpenClaw 사용자에게 특히 잘 맞습니다.
+## 아키텍처
 
-- Telegram 안에서 바로 OpenClaw를 열고 싶은 사람
-- 모바일에서 상태 확인과 간단한 운영 작업까지 하고 싶은 사람
-- 한국어 UI가 필요한 사람
-- Cloudflare Tunnel 기반으로 self-hosted Mini App을 붙이고 싶은 사람
-- Hermes용 Mini App 아이디어를 OpenClaw에 맞게 재구성한 사례가 필요한 사람
+```mermaid
+flowchart LR
+  TG[Telegram Mini App] --> CF[Cloudflare Tunnel / Public Origin]
+  CF --> BR[Mini App Bridge]
+  BR --> GW[OpenClaw Gateway]
+  BR --> HOST[Mac mini / Host System]
+  BR --> UI[index.html Static UI]
+```
 
-즉, "Hermes용 Mini App을 억지로 흉내 내는 포크"가 아니라,
-**OpenClaw에 맞게 다시 연결한 Telegram Mini App 포크**에 가깝습니다.
+브리지는 `index.html`을 서빙하고, Telegram Mini App 프런트엔드와 OpenClaw Gateway 사이에서 안전한 API 레이어 역할을 합니다.
 
-## 🚀 현재 상태
+## 포함된 구성요소
 
-이 포크는 이미 **기본 동작 가능한 수준**을 넘어서,
-OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 있습니다.
+| 경로 | 설명 |
+|---|---|
+| `index.html` | Telegram Mini App 프런트엔드 |
+| `bridge/openclaw_miniapp_bridge.py` | OpenClaw bridge 서버 |
+| `bridge/run_bridge.sh` | bridge 실행 스크립트 |
+| `launchd/ai.openclaw.miniapp-bridge.plist` | macOS launchd 예시 |
+| `systemd/openclaw-miniapp-bridge.service` | Linux systemd 예시 |
+| `tunnel/cloudflared-config.yml` | Cloudflare Tunnel 예시 |
+| `OPERATIONS_CHECKLIST.md` | 운영 / 장애 대응 체크리스트 |
+| `scripts/check_repo.sh` | repo 검증 스크립트 |
+| `scripts/verify_deployment.py` | 배포 검증 스크립트 |
 
-<div align="center">
+## Bridge API 요약
 
-| 상태 | 설명 |
-|------|------|
-| ✅ **Core 기능** | 채팅, 상태 확인, 크론 관리 등 핵심 기능 동작 |
-| ✅ **한국어 UI** | 모바일에 최적화된 한국어 인터페이스 |
-| ✅ **인증 보안** | Ed25519 서명 검증으로 안전한 인증 |
-| ✅ **운영 준비** | Cloudflare Tunnel 기반 실서비스 배포 가능 |
+### Runtime / OpenClaw
 
-</div>
+- `GET /health`
+- `GET /api/model-info`
+- `GET /api/session-usage`
+- `GET /api/runtime-status`
+- `GET /api/diagnostics`
+- `GET /api/subagents`
+- `POST /v1/chat/completions`
+- `POST /api/command`
 
-### 최근 업데이트
+### Cron
 
-- OpenClaw 브랜딩 반영
-- 한국어 UI 1차 적용
-- OpenClaw chat 연결
-- OpenClaw 세션 헤더 연결
-- Mini App bridge 추가
-- 크론 목록 조회 및 기본 액션 연결
-- macOS용 bridge launchd 실행 구성 추가
-- 런타임 상태, 에이전트, 세션 패널 추가
-- 외부 health / cloudflared 상태 / diagnostics 표시 강화
-- owner 제한 및 인증 하드닝 반영
-- browser fallback용 short-lived session token, refresh / revoke, rate limit 추가
+- `GET /api/jobs`
+- `GET /api/jobs/<id>`
+- `POST /api/jobs`
+- `PATCH /api/jobs/<id>`
+- `DELETE /api/jobs/<id>`
+- `POST /api/jobs/<id>/run`
+- `POST /api/jobs/<id>/pause`
+- `POST /api/jobs/<id>/resume`
 
-## 🎮 지금 동작하는 것
+### System Dashboard
 
-현재 이 포크에서 동작하는 핵심 기능은 아래와 같습니다.
+- `GET /api/system-info`
+- `GET /api/system-apps`
+- `GET /api/system-processes`
+- `GET /api/system-errors`
+- `POST /api/system-processes/kill`
 
-### 📱 Mobile Companion UI
-- Telegram Mini App 기반 반응형 디자인
-- 실시간 스트리밍 채팅 (타이핑 인디케이터 포함)
-- 진행률 표시 막대 (컨텍스트 사용량 표시)
-- 상태 패널 (시스템 리소스 모니터링)
-- 세션 목록 / 세션 상태 확인 및 관리
-- 에이전트 / subagent 상태 확인 및 조작
-- 크론 작업 생성, 수정, 실행 및 모니터링
+## 빠른 시작
 
-### 🔌 Bridge / API
-- `/v1/chat/completions` 프록시 연결 (스트리밍 SSE)
-- `/api/model-info` (모델 정보 조회)
-- `/api/session-usage` (세션 사용량 통계)
-- `/api/jobs` (크론 작업 CRUD)
-- `/api/command` (간단한 명령 실행)
-- `/api/runtime-status` (런타임 상태)
-- `/api/subagents` (서브에이전트 관리)
-- `/api/diagnostics` (진단 정보)
+### 사전 준비
 
-### ⚙️ 운영 기능
-- 브라우저 fallback용 short-lived session token 인증
-- Telegram Mini App Ed25519 인증 (안전한 서명 검증)
-- owner 제한, rate limit, browser session refresh / revoke
-- Cloudflare / public origin 이상 탐지용 diagnostics
-- bridge launchd 실행 구성 (macOS)
-- systemd 서비스 설정 (Linux)
-- Cloudflare Tunnel 운영 체크리스트 포함
+- OpenClaw Gateway가 실행 중인 머신
+- Telegram Bot Token
+- Telegram owner user id
+- HTTPS public origin
+- 권장: Cloudflare named tunnel + 고정 hostname
 
-## 포함된 브리지
+### 1. Clone
 
-이 저장소에는 작은 OpenClaw 브리지 서버가 포함되어 있습니다.
+```bash
+git clone https://github.com/techkwon/openclaw-telegram-miniapp.git
+cd openclaw-telegram-miniapp
+```
 
-- `bridge/openclaw_miniapp_bridge.py`
-- `bridge/run_bridge.sh`
-- `systemd/openclaw-miniapp-bridge.service`
-- `launchd/ai.openclaw.miniapp-bridge.plist`
+### 2. 환경 변수 준비
 
-이 브리지는 Mini App 프런트와 OpenClaw 사이에서 다음 역할을 맡습니다.
+```bash
+cp .env.example .env
+# .env 파일에 실제 값을 입력하세요.
+```
 
-- 정적 Mini App 파일 서빙
-- OpenClaw chat endpoint 프록시
-- 모델/세션 정보 조회
-- `openclaw cron` 기반 작업 조회 및 액션 연결
-- 간단한 명령 호환 레이어 제공
-- subagents / diagnostics 같은 운영용 데이터 노출
+주요 환경 변수:
 
----
+```bash
+MINIAPP_HOST=127.0.0.1
+MINIAPP_PORT=8765
+MINIAPP_PUBLIC_ORIGIN=https://miniapp.example.com
+OPENCLAW_BASE_URL=http://127.0.0.1:18789
+OPENCLAW_GATEWAY_TOKEN=...
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_OWNER_ID=...
+```
 
-## ⚡ 빠른 시작
+### 3. OpenClaw Gateway 설정
 
-<div align="center">
-
-**10분 만에 OpenClaw Telegram Mini App 설치하기**
-
-</div>
-
-### 사전 준비물
-- ✅ OpenClaw가 설치되고 실행 중인 서버
-- ✅ Telegram 봇 토큰 (@BotFather에서 생성)
-- ✅ Telegram 사용자 ID (@userinfobot에서 확인)
-- ✅ 도메인 (Cloudflare Tunnel용)
-
-## 빠른 문서 진입점
-
-- 시작점: [`docs/START_HERE.md`](docs/START_HERE.md)
-- 아키텍처: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- E2E 예시: [`docs/E2E_EXAMPLE.md`](docs/E2E_EXAMPLE.md)
-
-## 에이전트 설치 경로
-
-이 저장소는 이제 **GitHub를 source of truth로 두고, OpenClaw 에이전트가 직접 clone / update / install** 할 수 있는 형태를 목표로 정리하고 있습니다.
-
-에이전트나 자동화 설치 경로에서 먼저 읽을 문서:
-
-1. [`docs/AGENT_INSTALL.md`](docs/AGENT_INSTALL.md)
-2. [`docs/GITHUB_DEPLOYMENT.md`](docs/GITHUB_DEPLOYMENT.md)
-3. [`scripts/install.sh`](scripts/install.sh)
-4. [`scripts/verify_deployment.py`](scripts/verify_deployment.py)
-5. [`scripts/check_repo.sh`](scripts/check_repo.sh)
-6. [`scripts/smoke_install.sh`](scripts/smoke_install.sh)
-7. [`scripts/runtime_smoke.sh`](scripts/runtime_smoke.sh)
-8. [`docs/START_HERE.md`](docs/START_HERE.md)
-9. [`.env.example`](.env.example)
-10. [`requirements.txt`](requirements.txt)
-11. [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
-12. [`Dockerfile`](Dockerfile)
-13. [`docker-compose.yml`](docker-compose.yml)
-
-핵심 원칙:
-- repo에는 **문서, 템플릿, 설치 스크립트, 예시 설정**만 둡니다
-- 실제 token, password, secrets store는 **로컬 머신에만 둡니다**
-- 에이전트는 GitHub에서 repo를 가져오되, 머신 고유값은 로컬 service 설정에만 주입해야 합니다
-- 설치 완료 선언 전에는 반드시 `scripts/verify_deployment.py` 로 health 검증을 통과해야 합니다
-- PR이나 push 전에는 `scripts/check_repo.sh` 와 GitHub Actions CI가 같은 기본 검증을 수행합니다
-- CI는 unattended install smoke test, bridge runtime smoke test, Docker image build까지 검증합니다
-
-### 설치 단계
-
-1. **리포지토리 클론**
-   ```bash
-   git clone https://github.com/techkwon/openclaw-telegram-miniapp.git
-   cd openclaw-telegram-miniapp
-   ```
-
-2. **환경 변수 설정**
-   ```bash
-   cp .env.example .env
-   # .env 파일에 필요한 설정들 입력
-   ```
-
-3. **OpenClaw Gateway 설정**
-   ```json5
-   {
-     gateway: {
-       http: {
-         endpoints: {
-           chatCompletions: { enabled: true }
-         }
-       }
-     }
-   }
-   ```
-
-4. **Cloudflare Tunnel 설정**
-   ```bash
-   cloudflared tunnel login
-   cloudflared tunnel create openclaw-miniapp
-   cloudflared tunnel route dns openclaw-miniapp yourdomain.com
-   ```
-
-5. **서비스 시작**
-   ```bash
-   # macOS
-   cp launchd/ai.openclaw.miniapp-bridge.plist ~/Library/LaunchAgents/
-   launchctl load ~/Library/LaunchAgents/ai.openclaw.miniapp-bridge.plist
-   
-   # Linux
-   cp systemd/openclaw-miniapp-bridge.service /etc/systemd/system/
-   systemctl enable openclaw-miniapp-bridge
-   systemctl start openclaw-miniapp-bridge
-   ```
-
-6. **Telegram 봇 설정**
-   - @BotFather에서 `/setmenubutton` 실행
-   - Mini App URL 설정: `https://yourdomain.com`
-
-🎉 **설치 완료!** 이제 Telegram에서 봇의 메뉴 버튼을 눌러 Mini App을 실행하세요.
-
----
-
-## OpenClaw 설정에서 필요한 것
-
-채팅 프록시를 사용하려면 OpenClaw Gateway에서 HTTP chat completions endpoint를 켜야 합니다.
+채팅 프록시를 사용하려면 OpenClaw Gateway에서 HTTP chat completions endpoint가 켜져 있어야 합니다.
 
 ```json5
 {
@@ -245,155 +195,172 @@ OpenClaw 운영 companion으로 실제 써볼 수 있는 단계까지 올라와 
 }
 ```
 
-설정 후에는 gateway 재시작이 필요합니다.
+설정 변경 후에는 gateway 재시작이 필요할 수 있습니다.
 
-## 보안 메모
+### 4. Bridge 실행
 
-브라우저에서 직접 여는 fallback 모드는 장기 shared token을 계속 저장하지 않고, bridge가 발급하는 짧은 세션 토큰을 사용합니다.
+```bash
+python3 bridge/openclaw_miniapp_bridge.py
+```
 
-- 기본 browser session TTL: `MINIAPP_BROWSER_SESSION_TTL_SECONDS` (기본 1800초)
-- 기본 rate limit window: `MINIAPP_RATE_LIMIT_WINDOW_SECONDS` (기본 60초)
-- 일반 요청 limit: `MINIAPP_RATE_LIMIT_MAX_REQUESTS`
-- 민감 액션 limit: `MINIAPP_RATE_LIMIT_ACTION_MAX_REQUESTS`
-- 인증 디버그 로그: `MINIAPP_AUTH_DEBUG=false` 권장
-- bridge는 시작 시 주요 설정값을 검증하고, 잘못된 배포 설정이면 즉시 종료합니다.
-- 요청 로그는 JSON 한 줄 형식으로 남기며, bearer token 원문은 기록하지 않습니다.
+health 확인:
 
-개인 사용자 배포에서는 기본값으로도 충분하지만, public 노출이 크면 TTL을 더 짧게 조정하는 쪽이 안전합니다.
+```bash
+curl http://127.0.0.1:8765/health
+```
 
-## CI / 컨테이너 경로
+예상 응답:
 
-이제 저장소에는 아래 약점 보강 경로가 추가되어 있습니다.
+```json
+{"ok": true, "status": "live"}
+```
 
-- GitHub Actions CI: `.github/workflows/ci.yml`
-- 공통 체크 스크립트: `scripts/check_repo.sh`
-- unattended install smoke test: `scripts/smoke_install.sh`
-- 컨테이너 이미지 빌드 경로: `Dockerfile`
-- 컨테이너 실행 예시: `docker-compose.yml`
+## macOS launchd 배포
 
-빠른 로컬 체크:
+```bash
+cp launchd/ai.openclaw.miniapp-bridge.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.openclaw.miniapp-bridge.plist
+launchctl kickstart -k gui/$(id -u)/ai.openclaw.miniapp-bridge
+```
+
+상태 확인:
+
+```bash
+launchctl print gui/$(id -u)/ai.openclaw.miniapp-bridge
+curl http://127.0.0.1:8765/health
+```
+
+> launchd plist의 환경 변수를 수정한 경우 단순 `kickstart`만으로는 반영되지 않을 수 있습니다. 이때는 `bootout -> bootstrap` 순서로 다시 올리는 편이 안전합니다.
+
+## Linux systemd 배포
+
+```bash
+sudo cp systemd/openclaw-miniapp-bridge.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now openclaw-miniapp-bridge
+sudo systemctl status openclaw-miniapp-bridge
+```
+
+## Cloudflare Tunnel 권장 구성
+
+Telegram Mini App은 임시 tunnel URL보다 고정 hostname이 훨씬 안정적입니다.
+
+권장 흐름:
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create openclaw-miniapp
+cloudflared tunnel route dns openclaw-miniapp miniapp.example.com
+cloudflared tunnel --config ~/.cloudflared/config.yml run openclaw-miniapp
+```
+
+예시 설정은 [`tunnel/cloudflared-config.yml`](tunnel/cloudflared-config.yml)을 참고하세요.
+
+## Telegram Bot 연결
+
+BotFather에서 Menu Button 또는 Mini App URL을 public origin으로 설정합니다.
+
+```text
+https://miniapp.example.com
+```
+
+설정 후 Telegram에서 봇 메뉴 버튼을 열면 Mini App이 실행됩니다.
+
+## 보안 원칙
+
+이 Mini App은 운영 패널 성격을 갖기 때문에 아래 원칙을 지킵니다.
+
+- Telegram Mini App `initData` 검증
+- Ed25519 기반 서명 검증 지원
+- owner id 제한
+- browser fallback용 short-lived session token
+- refresh / revoke 지원
+- 요청 rate limit
+- bearer token 원문 로그 금지
+- 인증 없는 API 접근 차단
+- 위험한 프로세스 종료 보호 로직
+
+운영 환경에서는 특히 아래를 확인하세요.
+
+- `MINIAPP_AUTH_DEBUG=false`
+- `MINIAPP_PUBLIC_ORIGIN`이 실제 public origin과 일치
+- `TELEGRAM_OWNER_ID` 또는 `TELEGRAM_OWNER_IDS` 설정
+- `OPENCLAW_GATEWAY_TOKEN` 또는 `OPENCLAW_GATEWAY_PASSWORD` 설정
+- Cloudflare Tunnel이 named tunnel로 실행 중인지 확인
+
+## 개발 / 검증
+
+빠른 repo 체크:
 
 ```bash
 ./scripts/check_repo.sh
 ```
 
-빠른 Docker 빌드 예시:
+Python syntax check:
+
+```bash
+python3 -m py_compile bridge/openclaw_miniapp_bridge.py
+```
+
+배포 검증:
+
+```bash
+python3 scripts/verify_deployment.py
+```
+
+Docker build:
 
 ```bash
 docker build -t openclaw-telegram-miniapp .
 ```
 
-빠른 compose 실행 예시:
+Docker Compose:
 
 ```bash
 docker compose up -d --build
 ```
 
-## 구조 한눈에 보기
+## 문서
 
-```mermaid
-flowchart LR
-  TG[Telegram Mini App] --> CF[Cloudflare Tunnel / Public Origin]
-  CF --> BR[Mini App Bridge]
-  BR --> GW[OpenClaw Gateway]
-  BR --> UI[index.html static UI]
-```
-
-## Production 체크리스트
-
-배포 전에 아래 항목을 확인하세요.
-
-- `MINIAPP_PUBLIC_ORIGIN` 이 실제 공개 HTTPS URL과 일치하는지
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_ID` 또는 `TELEGRAM_OWNER_IDS` 가 정확한지
-- `OPENCLAW_BASE_URL` 이 실제 gateway 주소인지
-- gateway 쪽 `chatCompletions` endpoint가 활성화되어 있는지
-- `OPENCLAW_GATEWAY_TOKEN` 또는 `OPENCLAW_GATEWAY_PASSWORD` 가 현재 gateway 설정과 맞는지
-- `MINIAPP_AUTH_DEBUG=false` 로 꺼져 있는지
-- 브리지와 cloudflared 로그 경로가 실제 서비스 계정에서 쓰기 가능한지
-- Cloudflare Tunnel이 named tunnel + 고정 도메인으로 올라오는지
-- Telegram Menu Button URL이 최종 공개 origin으로 설정되었는지
-
-권장 추가 점검:
-
-- browser fallback 세션 TTL을 공개 노출 정도에 맞게 10~30분 범위에서 조정
-- bridge 재시작 후 `/health`, `/api/diagnostics`, 실제 Mini App 진입까지 한 번씩 확인
-- 운영 중에는 구조화 로그의 `status`, `duration_ms`, `auth_kind` 필드를 기준으로 이상 징후를 확인
-
-## 빠른 배포 개요
-
-현재 로컬 브리지는 `127.0.0.1:8765` 에서 동작하도록 맞춰져 있고,
-실배포 기본 도메인은 아래 기준으로 정리했습니다.
-
-- 권장 Mini App origin: `https://miniapp.techkwon.kr`
-- launchd 기본값: `MINIAPP_PUBLIC_ORIGIN=https://miniapp.techkwon.kr`
-- Cloudflare Tunnel 예시 파일: `tunnel/cloudflared-config.yml`
-
-권장 배포 순서:
-
-1. `cloudflared tunnel login`
-2. `cloudflared tunnel create openclaw-miniapp`
-3. `cloudflared tunnel route dns openclaw-miniapp miniapp.techkwon.kr`
-4. `~/.cloudflared/config.yml` 에 `tunnel/cloudflared-config.yml` 내용을 실제 tunnel UUID로 반영
-5. `cloudflared tunnel --config ~/.cloudflared/config.yml tunnel run openclaw-miniapp`
-6. Telegram Bot 설정에서 Mini App URL 또는 Menu Button URL을 `https://miniapp.techkwon.kr` 로 교체
-
-주의:
-
-- Telegram Mini App 엔트리포인트는 `trycloudflare.com` 같은 임시 URL보다 고정 hostname이 훨씬 안전합니다.
-- 실제 Telegram 쪽 URL 교체는 Cloudflare named tunnel이 정상 응답하는 것을 먼저 확인한 뒤 진행하는 것이 좋습니다.
-- launchd plist를 수정한 뒤 환경 변수를 확실히 반영하려면 단순 kickstart보다 `bootout -> bootstrap` 재적용이 더 안전할 수 있습니다.
-- 운영 중 장애 분리 순서는 [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)를 바로 참고하면 됩니다.
+- 시작점: [`docs/START_HERE.md`](docs/START_HERE.md)
+- 아키텍처: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- 에이전트 설치: [`docs/AGENT_INSTALL.md`](docs/AGENT_INSTALL.md)
+- GitHub 배포: [`docs/GITHUB_DEPLOYMENT.md`](docs/GITHUB_DEPLOYMENT.md)
+- E2E 예시: [`docs/E2E_EXAMPLE.md`](docs/E2E_EXAMPLE.md)
+- 운영 체크리스트: [`OPERATIONS_CHECKLIST.md`](OPERATIONS_CHECKLIST.md)
 
 ## 이 포크가 원본과 다른 점
 
-원본 프로젝트는 이미 훌륭한 사용자 경험과 UI 감각을 갖고 있었습니다.
-다만 OpenClaw는 Hermes와 백엔드 구조가 완전히 같지 않기 때문에, 그대로 가져오면 동작하지 않는 지점들이 있었습니다.
+원본은 Hermes 환경을 위한 Mini App입니다. 이 포크는 OpenClaw 환경에 맞춰 다음을 추가/변경했습니다.
 
-그래서 이 포크에서는 아래 원칙을 지키고 있습니다.
-
-- 안 되는 기능을 되는 척하지 않기
-- OpenClaw에 맞는 연결 방식을 명확히 만들기
-- 원본 크레딧과 라이선스 의무를 유지하기
-- 사용자 입장에서는 더 단순하고 실용적으로 보이게 만들기
-- 관리자용 대시보드를 그대로 노출하기보다 모바일 companion 경험에 집중하기
-
-## 저장소에서 바로 볼 만한 파일
-
-- `bridge/openclaw_miniapp_bridge.py` - OpenClaw 연결 핵심 bridge
-- `index.html` - Mini App 프런트엔드
-- `docs/AGENT_INSTALL.md` - OpenClaw 에이전트용 설치 가이드
-- `docs/GITHUB_DEPLOYMENT.md` - GitHub-only 배포 가이드
-- `OPERATIONS_CHECKLIST.md` - 장애 대응 체크리스트
-- `tunnel/cloudflared-config.yml` - Cloudflare Tunnel 예시 설정
-- `launchd/ai.openclaw.miniapp-bridge.plist` - macOS launchd 예시
-
-## 앞으로 더 다듬을 부분
-
-아직 더 좋아질 수 있는 부분도 분명히 있습니다.
-
-- README에 실제 스크린샷 / GIF 추가
-- 상태/크론 패널의 OpenClaw 네이티브 데이터 확장
-- Telegram Mini App 인증 검증 고도화
-- 설치/배포 문서 세분화
-- 세션/에이전트 조작 UX 개선
+- OpenClaw Gateway chat completions proxy
+- OpenClaw runtime / session / agent / cron 연동
+- 한국어 중심 모바일 UI
+- Telegram Mini App 인증 하드닝
+- Cloudflare Tunnel / public origin diagnostics
+- macOS launchd 운영 경로
+- Mac mini system dashboard
+- 실행 중 앱 / 프로세스 모니터링
+- 운영 로그와 최근 오류 요약
 
 ## 개발 방향
 
-이 포크는 다음 원칙으로 유지합니다.
+이 프로젝트는 OpenClaw의 전체 관리자 콘솔을 그대로 노출하기보다, Telegram 안에서 자주 필요한 운영 기능을 안전하고 가볍게 제공하는 companion을 지향합니다.
 
-- 원본 MIT 라이선스 유지
-- 원작자 명시적 크레딧 유지
-- 포크 상태를 README에서 정직하게 설명
-- OpenClaw에 없는 Hermes 전용 기능을 과장하지 않음
-- OpenClaw 사용자 경험은 한국어 중심으로 정리
-- 모바일 운영 companion으로서 실제 유용성을 우선함
+앞으로의 개선 후보:
+
+- System 탭 스크린샷 추가
+- 앱/프로세스 필터와 검색
+- 안전한 임시 파일 / 브라우저 캡처 프로필 정리 버튼
+- OpenClaw service별 세부 health card
+- 모바일 UX polish와 접근성 개선
+- GitHub Releases / 배포 자동화
 
 ## 저장소 링크
 
 - 원본 프로젝트: <https://github.com/clawvader-tech/hermes-telegram-miniapp>
 - 이 포크: <https://github.com/techkwon/openclaw-telegram-miniapp>
 
-## 라이선스
+## License
 
-원본 프로젝트와 이 포크는 모두 MIT License를 따릅니다.
-자세한 내용은 [LICENSE](LICENSE)를 참고해 주세요.
+이 프로젝트는 원본과 동일하게 MIT License를 따릅니다. 자세한 내용은 [LICENSE](LICENSE)를 참고하세요.
