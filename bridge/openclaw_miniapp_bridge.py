@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import base64
+import getpass
 import hashlib
 import hmac
 import json
 import mimetypes
 import os
+import platform
 import re
+import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -65,6 +69,8 @@ COMMANDS = [
     {'name': 'commands', 'description': '이 브리지에서 지원하는 명령 목록 보기', 'category': 'core'},
     {'name': 'status', 'description': 'OpenClaw 실행 상태 요약 보기', 'category': 'runtime'},
     {'name': 'runtime', 'description': '런타임 상태 JSON 보기', 'category': 'runtime'},
+    {'name': 'system', 'description': '맥미니 시스템 정보 보기', 'category': 'runtime'},
+    {'name': 'system processes', 'description': '맥미니 실행 프로세스 보기', 'category': 'runtime'},
     {'name': 'model', 'description': '현재 기본 모델 정보 보기', 'category': 'runtime'},
     {'name': 'usage', 'description': '현재 세션 토큰 사용량 보기', 'category': 'runtime'},
     {'name': 'processes', 'description': '최근 세션/프로세스 보기', 'category': 'runtime'},
@@ -352,6 +358,262 @@ def _parse_tail_lines(text, default=40):
         return default
 
 
+
+
+def _run_quiet(args, timeout=2):
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, errors='replace', timeout=timeout)
+        if proc.returncode != 0:
+            return ''
+        return (proc.stdout or '').strip()
+    except Exception:
+        return ''
+
+
+def _bytes_human(value):
+    try:
+        value = float(value or 0)
+    except Exception:
+        value = 0
+    units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+    for unit in units:
+        if abs(value) < 1024 or unit == units[-1]:
+            return f"{value:.1f} {unit}" if unit != 'B' else f"{int(value)} B"
+        value /= 1024
+    return f"{value:.1f} PB"
+
+
+def _parse_vm_stat():
+    out = _run_quiet(['vm_stat'])
+    values = {}
+    for line in out.splitlines():
+        if ':' not in line:
+            continue
+        key, raw = line.split(':', 1)
+        match = re.search(r'([0-9]+)', raw.replace('.', ''))
+        if match:
+            values[key.strip()] = int(match.group(1))
+    return values
+
+
+def get_host_system_info():
+    total_mem = 0
+    try:
+        total_mem = int(_run_quiet(['sysctl', '-n', 'hw.memsize']) or '0')
+    except Exception:
+        total_mem = 0
+
+    page_size = os.sysconf('SC_PAGE_SIZE') if hasattr(os, 'sysconf') else 4096
+    vm = _parse_vm_stat()
+    free_pages = sum(vm.get(k, 0) for k in ('Pages free', 'Pages speculative'))
+    inactive_pages = vm.get('Pages inactive', 0)
+    compressed_pages = vm.get('Pages occupied by compressor', 0)
+    free_bytes = max(0, free_pages * page_size)
+    available_bytes = max(0, (free_pages + inactive_pages) * page_size)
+    used_bytes = max(0, total_mem - free_bytes) if total_mem else 0
+    memory_percent = round((used_bytes / total_mem) * 100, 1) if total_mem else None
+
+    disk = shutil.disk_usage('/')
+    disk_used = disk.total - disk.free
+    disk_percent = round((disk_used / disk.total) * 100, 1) if disk.total else None
+
+    try:
+        loads = os.getloadavg()
+    except Exception:
+        loads = (0.0, 0.0, 0.0)
+    cpu_count = os.cpu_count() or 1
+    load_percent = round((loads[0] / cpu_count) * 100, 1) if cpu_count else None
+
+    uptime_text = _run_quiet(['uptime'])
+    host_name = platform.node() or _run_quiet(['hostname']) or 'unknown'
+    os_version = platform.platform()
+    sw_vers = _run_quiet(['sw_vers', '-productVersion'])
+    if sw_vers:
+        os_version = f"macOS {sw_vers} ({platform.machine()})"
+
+    return {
+        'host': host_name,
+        'os': os_version,
+        'arch': platform.machine(),
+        'cpu': {
+            'brand': _run_quiet(['sysctl', '-n', 'machdep.cpu.brand_string']) or platform.processor() or 'unknown',
+            'cores': cpu_count,
+            'load_1m': round(loads[0], 2),
+            'load_5m': round(loads[1], 2),
+            'load_15m': round(loads[2], 2),
+            'load_percent_estimate': load_percent,
+        },
+        'memory': {
+            'total_bytes': total_mem,
+            'used_bytes': used_bytes,
+            'free_bytes': free_bytes,
+            'available_bytes': available_bytes,
+            'compressed_bytes': compressed_pages * page_size,
+            'used_percent': memory_percent,
+            'total_human': _bytes_human(total_mem),
+            'used_human': _bytes_human(used_bytes),
+            'available_human': _bytes_human(available_bytes),
+            'compressed_human': _bytes_human(compressed_pages * page_size),
+        },
+        'disk': {
+            'mount': '/',
+            'total_bytes': disk.total,
+            'used_bytes': disk_used,
+            'free_bytes': disk.free,
+            'used_percent': disk_percent,
+            'total_human': _bytes_human(disk.total),
+            'used_human': _bytes_human(disk_used),
+            'free_human': _bytes_human(disk.free),
+        },
+        'uptime': uptime_text,
+        'checked_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def get_host_processes(limit=40):
+    try:
+        limit = max(5, min(int(limit or 40), 120))
+    except Exception:
+        limit = 40
+    out = _run_quiet(['ps', '-axo', 'pid=,ppid=,user=,pcpu=,pmem=,etime=,comm=,args=', '-r'], timeout=3)
+    items = []
+    current_user = getpass.getuser()
+    self_pid = os.getpid()
+    parent_pid = os.getppid()
+    for line in out.splitlines():
+        parts = line.strip().split(None, 7)
+        if len(parts) < 8:
+            continue
+        pid_s, ppid_s, user, cpu_s, mem_s, etime, comm, args = parts
+        try:
+            pid = int(pid_s)
+            ppid = int(ppid_s)
+            cpu = float(cpu_s)
+            mem = float(mem_s)
+        except Exception:
+            continue
+        protected_name = any(token in (comm + ' ' + args) for token in (
+            'kernel_task', '/sbin/launchd', '/System/Library/', '/usr/libexec/', '/usr/sbin/',
+            'openclaw-gateway', 'openclaw_miniapp_bridge.py'
+        ))
+        protected = (
+            pid in {0, 1, self_pid, parent_pid}
+            or user != current_user
+            or protected_name
+        )
+        items.append({
+            'pid': pid,
+            'ppid': ppid,
+            'user': user,
+            'cpu_percent': cpu,
+            'mem_percent': mem,
+            'etime': etime,
+            'command': comm,
+            'args': args[:500],
+            'killable': not protected,
+            'protected_reason': 'system/self/other-user' if protected else '',
+        })
+        if len(items) >= limit:
+            break
+    return {
+        'processes': items,
+        'count': len(items),
+        'current_user': current_user,
+        'self_pid': self_pid,
+        'checked_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+
+def get_running_apps():
+    script = """
+    tell application "System Events"
+      set appRows to {}
+      repeat with p in (application processes whose background only is false)
+        set end of appRows to (name of p as text) & "\t" & (unix id of p as text) & "\t" & ((frontmost of p) as text)
+      end repeat
+      return appRows
+    end tell
+    """
+    out = _run_quiet(['osascript', '-e', script], timeout=4)
+    apps = []
+    seen = set()
+    for raw in out.split(', '):
+        parts = raw.split('\t')
+        if len(parts) < 3:
+            continue
+        name, pid_s, front = parts[0].strip(), parts[1].strip(), parts[2].strip().lower()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        try:
+            pid = int(pid_s)
+        except Exception:
+            pid = None
+        apps.append({
+            'name': name,
+            'pid': pid,
+            'frontmost': front == 'true',
+            'killable': bool(pid and pid > 1 and pid not in {os.getpid(), os.getppid()}),
+        })
+    apps.sort(key=lambda a: (not a.get('frontmost'), a.get('name', '').lower()))
+    return {'apps': apps, 'count': len(apps), 'checked_at': datetime.now(timezone.utc).isoformat()}
+
+
+def kill_host_process(pid, sig='TERM'):
+    try:
+        pid = int(pid)
+    except Exception:
+        raise RuntimeError('invalid pid')
+    if pid <= 1 or pid in {os.getpid(), os.getppid()}:
+        raise RuntimeError('protected pid')
+    snapshot = get_host_processes(limit=120)
+    found = next((p for p in snapshot.get('processes', []) if p.get('pid') == pid), None)
+    if not found:
+        raise RuntimeError(f'process not found or not visible: {pid}')
+    if not found.get('killable'):
+        raise RuntimeError(f'protected process: {pid}')
+    sig_name = str(sig or 'TERM').upper()
+    sig_value = signal.SIGKILL if sig_name in {'KILL', 'SIGKILL', '9'} else signal.SIGTERM
+    try:
+        os.kill(pid, sig_value)
+    except ProcessLookupError:
+        return {'ok': True, 'pid': pid, 'already_exited': True}
+    except PermissionError:
+        raise RuntimeError(f'permission denied: {pid}')
+    return {'ok': True, 'pid': pid, 'signal': 'SIGKILL' if sig_value == signal.SIGKILL else 'SIGTERM', 'process': found}
+
+
+
+def get_recent_error_summary(limit=8):
+    sources = [
+        ('bridge', BRIDGE_ERR_LOG_PATH),
+        ('cloudflared', CLOUDFLARED_ERR_LOG_PATH),
+    ]
+    rows = []
+    patterns = ('error', 'warn', 'fail', 'traceback', 'exception', 'unauthorized', 'denied')
+    for source, path in sources:
+        path = Path(path)
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(errors='replace').splitlines()[-240:]
+        except Exception as e:
+            rows.append({'source': source, 'level': 'warn', 'message': f'로그 읽기 실패: {e}'})
+            continue
+        for line in reversed(lines):
+            clean = line.strip()
+            if not clean:
+                continue
+            low = clean.lower()
+            if any(p in low for p in patterns):
+                level = 'error' if any(p in low for p in ('error', 'fail', 'traceback', 'exception', 'denied')) else 'warn'
+                rows.append({'source': source, 'level': level, 'message': clean[:500]})
+                if len(rows) >= limit:
+                    return {'items': rows, 'count': len(rows), 'checked_at': datetime.now(timezone.utc).isoformat()}
+    return {'items': rows[:limit], 'count': min(len(rows), limit), 'checked_at': datetime.now(timezone.utc).isoformat()}
+
+
 def get_system_diagnostics():
     runtime = get_runtime_status()
     return {
@@ -370,12 +632,14 @@ def get_system_diagnostics():
             'initdata_max_age_seconds': INITDATA_MAX_AGE_SECONDS,
         },
         'gateway': runtime.get('gateway') or {},
+        'host': get_host_system_info(),
         'tasks': runtime.get('tasks') or {},
         'sessions': {
             'count': (runtime.get('sessions') or {}).get('count', 0),
         },
         'cloudflared': _cloudflared_launch_status(),
         'external_probe': _external_public_probe(),
+        'recent_errors': get_recent_error_summary(),
         'logs': {
             'bridge_out': str(BRIDGE_LOG_PATH),
             'bridge_err': str(BRIDGE_ERR_LOG_PATH),
@@ -741,6 +1005,12 @@ def command_output(command, args):
         return run_cli(['gateway', 'status', '--deep'])
     if normalized in ('runtime', 'runtime status'):
         return json.dumps(get_runtime_status(), ensure_ascii=False, indent=2)
+    if normalized in ('system', 'host', 'macmini', 'mac mini'):
+        return json.dumps(get_host_system_info(), ensure_ascii=False, indent=2)
+    if normalized in ('system processes', 'macmini processes', 'mac mini processes'):
+        return json.dumps(get_host_processes(), ensure_ascii=False, indent=2)
+    if normalized in ('system apps', 'macmini apps', 'mac mini apps'):
+        return json.dumps(get_running_apps(), ensure_ascii=False, indent=2)
     if normalized in ('model',):
         return json.dumps(get_model_info(), ensure_ascii=False, indent=2)
     if normalized in ('usage', 'session usage'):
@@ -1354,6 +1624,18 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/diagnostics':
                 self.require_auth()
                 return json_response(self, 200, get_system_diagnostics())
+            if self.path == '/api/system-info':
+                self.require_auth()
+                return json_response(self, 200, get_host_system_info())
+            if self.path == '/api/system-processes':
+                self.require_auth()
+                return json_response(self, 200, get_host_processes())
+            if self.path == '/api/system-apps':
+                self.require_auth()
+                return json_response(self, 200, get_running_apps())
+            if self.path == '/api/system-errors':
+                self.require_auth()
+                return json_response(self, 200, get_recent_error_summary())
             if self.path == '/api/processes':
                 self.require_auth()
                 return json_response(self, 200, get_processes())
@@ -1413,6 +1695,8 @@ class Handler(BaseHTTPRequestHandler):
                 return json_response(self, 200, subagent_action(body, session_id=session_id))
             if self.path == '/api/actions/run':
                 return json_response(self, 200, run_named_action(body.get('action')))
+            if self.path == '/api/system-processes/kill':
+                return json_response(self, 200, kill_host_process(body.get('pid'), body.get('signal') or 'TERM'))
             if self.path == '/api/jobs':
                 created = create_job(body)
                 return json_response(self, 200, created)

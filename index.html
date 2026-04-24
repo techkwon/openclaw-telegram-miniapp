@@ -1164,6 +1164,9 @@ body {
   <div class="tab" data-panel="status" onclick="switchTab('status')">
     <span class="tab-icon">&#9679;</span>상태
   </div>
+  <div class="tab" data-panel="system" onclick="switchTab('system')">
+    <span class="tab-icon">&#128187;</span>시스템
+  </div>
   <div class="tab" data-panel="agents" onclick="switchTab('agents')">
     <span class="tab-icon">&#129302;</span>에이전트
   </div>
@@ -1224,6 +1227,12 @@ body {
 <div id="status-panel" class="panel">
   <div class="status-bar" id="status-bar"></div>
   <div class="panel-scroll" id="status-content"></div>
+</div>
+
+<!-- SYSTEM -->
+<div id="system-panel" class="panel">
+  <div class="status-bar" id="system-bar"></div>
+  <div class="panel-scroll" id="system-content" style="padding-top:12px"></div>
 </div>
 
 <!-- AGENTS -->
@@ -1951,6 +1960,7 @@ function updateMainActionButton() {
   const actions = {
     terminal: { text: '전송', handler: () => sendMessage(), visible: true },
     status: { text: '상태 새로고침', handler: () => loadStatus(), visible: true },
+    system: { text: '시스템 새로고침', handler: () => loadSystem(), visible: true },
     agents: { text: '에이전트 새로고침', handler: () => loadAgents(), visible: true },
     sessions: { text: '세션 새로고침', handler: () => loadSessions(), visible: true },
     cron: { text: '크론 새로고침', handler: () => loadCron(), visible: true },
@@ -1973,6 +1983,7 @@ function switchTab(t) {
   document.querySelectorAll('.panel').forEach(x => x.classList.toggle('active', x.id === t + '-panel'));
   if (t === 'terminal') loadTerminalOverview(true);
   if (t === 'status') loadStatus();
+  if (t === 'system') loadSystem();
   if (t === 'agents') loadAgents();
   if (t === 'sessions') loadSessions();
   if (t === 'cron') loadCron();
@@ -3336,7 +3347,7 @@ function toggleAdvancedInfoFromSettings() {
 }
 
 function cycleStartTabFromSettings() {
-  const tabs = ['terminal', 'status', 'agents', 'sessions', 'cron'];
+  const tabs = ['terminal', 'status', 'system', 'agents', 'sessions', 'cron'];
   const current = getStartTabPreference();
   const index = tabs.indexOf(current);
   const next = tabs[(index + 1 + tabs.length) % tabs.length];
@@ -3578,6 +3589,77 @@ function renderSuggestedActionsCard(runtime, diag, compact = false) {
   `;
 }
 
+
+
+function pctTone(value, warn = 70, bad = 85) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  if (n >= bad) return 'negative';
+  if (n >= warn) return 'accent';
+  return 'positive';
+}
+function fmtPct(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? `${n.toFixed(n % 1 ? 1 : 0)}%` : '—';
+}
+function metricBar(value, warn = 70, bad = 85) {
+  const n = Math.max(0, Math.min(100, Number(value) || 0));
+  const tone = pctTone(n, warn, bad) || 'positive';
+  const cls = tone === 'negative' ? 'bad' : tone === 'accent' ? 'warn' : 'good';
+  return `<span class="ctx-bar" style="width:100%;height:8px"><span class="ctx-fill ${cls}" style="width:${n}%"></span></span>`;
+}
+function renderMiniMetric(label, value, sub, warn = 70, bad = 85) {
+  return `<div class="recommend-card" style="padding:11px">
+    <div class="recommend-head"><div><div class="recommend-title">${esc(label)}</div><div class="recommend-sub">${esc(sub || '')}</div></div><div class="item-value ${pctTone(value, warn, bad)}">${fmtPct(value)}</div></div>
+    <div style="margin-top:8px">${metricBar(value, warn, bad)}</div>
+  </div>`;
+}
+function renderSystemInfoCard(host) {
+  const cpu = host?.cpu || {};
+  const mem = host?.memory || {};
+  const disk = host?.disk || {};
+  const loadPct = cpu.load_percent_estimate;
+  const memPct = mem.used_percent;
+  const diskPct = disk.used_percent;
+  const uptime = host?.uptime ? String(host.uptime).replace(/^.* up /, 'up ') : '—';
+  return `
+      <div class="section">
+        <div class="section-header"><h2>맥미니 대시보드</h2></div>
+        <div class="item"><div class="item-label">호스트</div><div class="item-stack"><div class="item-value">${esc(host?.host || '—')}</div><div class="item-sub">${esc(host?.os || 'macOS')} · ${esc(cpu.brand || 'CPU')}</div></div></div>
+        <div class="quick-grid">
+          ${renderMiniMetric('CPU 부하', loadPct, `1분 load ${cpu.load_1m ?? '—'} / ${cpu.cores ?? '—'} cores`, 70, 90)}
+          ${renderMiniMetric('메모리', memPct, `가용 ${mem.available_human || '—'} / 전체 ${mem.total_human || '—'}`, 75, 90)}
+          ${renderMiniMetric('디스크', diskPct, `여유 ${disk.free_human || '—'} / 전체 ${disk.total_human || '—'}`, 80, 92)}
+        </div>
+        <div class="item"><div class="item-label">가동 시간</div><div class="item-stack"><div class="item-value" style="font-size:11px;text-align:right">${esc(uptime)}</div><div class="item-sub">마지막 확인 ${host?.checked_at ? esc(new Date(host.checked_at).toLocaleTimeString()) : '—'}</div></div></div>
+      </div>`;
+}
+function renderOpsHealthCard(diag) {
+  const gatewayOk = !!diag?.gateway?.reachable;
+  const tunnelOk = !!diag?.cloudflared?.launch_agent_running;
+  const probeConfigured = !!diag?.external_probe?.configured;
+  const probeOk = !probeConfigured || !!diag?.external_probe?.reachable;
+  const items = [
+    ['Gateway', gatewayOk, diag?.gateway?.url || 'OpenClaw Gateway'],
+    ['Bridge', true, diag?.bridge?.backend_base || 'Mini App bridge'],
+    ['Tunnel', tunnelOk, tunnelOk ? 'cloudflared running' : 'cloudflared stopped'],
+    ['Public', probeOk, probeConfigured ? (probeOk ? '외부 접속 가능' : '외부 접속 실패') : 'probe 미설정'],
+  ];
+  const score = items.filter(x => x[1]).length;
+  return `<div class="section">
+    <div class="section-header"><h2>OpenClaw 운영 상태</h2></div>
+    <div class="item"><div class="item-label">종합</div><div class="item-stack"><div class="item-value ${score === items.length ? 'positive' : score >= 2 ? 'accent' : 'negative'}">${score}/${items.length} 정상</div><div class="item-sub">Gateway · Bridge · Tunnel · Public 경로 기준</div></div></div>
+    <div class="quick-grid">${items.map(([name, ok, sub]) => `<div class="recommend-card ${ok ? '' : 'error'}" style="padding:10px"><div class="recommend-title">${ok ? '✅' : '⚠️'} ${esc(name)}</div><div class="recommend-sub">${esc(sub || '')}</div></div>`).join('')}</div>
+  </div>`;
+}
+function renderRecentErrorsCard(errors) {
+  const items = errors?.items || [];
+  return `<div class="section">
+    <div class="section-header"><h2>최근 오류</h2></div>
+    ${items.length ? items.slice(0, 6).map(e => `<div class="history-card ${e.level === 'error' ? 'system' : ''}"><div class="history-head"><div class="history-role-wrap"><div class="history-icon">${e.level === 'error' ? '🚨' : '⚠️'}</div><div class="history-role system">${esc(e.source || 'log')}</div></div></div><div class="history-body">${esc(e.message || '')}</div></div>`).join('') : '<div class="item"><div class="item-label">상태</div><div class="item-stack"><div class="item-value positive">최근 큰 오류 없음</div><div class="item-sub">bridge/cloudflared 오류 로그 기준</div></div></div>'}
+  </div>`;
+}
+
 // ─── STATUS ────────────────────────────────────────────────────────────────
 async function loadStatus() {
   const bar = document.getElementById('status-bar');
@@ -3592,6 +3674,7 @@ async function loadStatus() {
       api('/api/diagnostics').catch(() => ({})),
     ]);
     const gateway = s?.gateway || {};
+    const host = diag?.host || {};
     const tasks = s?.tasks || {};
     const sessions = s?.sessions || {};
     const recent = sessions?.recent || [];
@@ -3698,6 +3781,115 @@ async function loadStatus() {
     rememberError(e.message, 'status');
     bar.innerHTML = `<div class="status-chip error"><span class="status-dot"></span>오프라인</div>`;
     content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${e.message}<br><br>이제 상태 패널은 OpenClaw runtime-status endpoint를 사용합니다.</div></div>`;
+  }
+}
+
+
+function processName(p) {
+  const raw = p?.args || p?.command || '';
+  const text = String(raw).trim();
+  if (!text) return `PID ${p?.pid || '—'}`;
+  const short = text.replace(/^\/Applications\//, '').replace(/^\/Users\/[^/]+\//, '~/');
+  return short.length > 86 ? short.slice(0, 83) + '…' : short;
+}
+function processIcon(p) {
+  const text = String((p?.args || p?.command || '')).toLowerCase();
+  if (text.includes('chrome')) return '🌐';
+  if (text.includes('openclaw')) return '🦞';
+  if (text.includes('python')) return '🐍';
+  if (text.includes('node')) return '⬢';
+  if (text.includes('cloudflare') || text.includes('cloudflared')) return '☁️';
+  if (text.includes('terminal') || text.includes('zsh')) return '⌘';
+  return '⚙️';
+}
+function renderRunningApps(apps) {
+  if (!apps?.length) return '<div class="item"><div class="item-label">앱</div><div class="item-value">표시할 앱이 없어요</div></div>';
+  return `<div class="quick-grid">${apps.map(app => {
+    const killBtn = app.killable ? `<button class="qbtn danger" style="padding:6px 8px;min-height:30px" onclick="confirmKillProcess(${Number(app.pid)}, '${escAttr(app.name)}')">종료</button>` : '';
+    return `<div class="recommend-card ${app.frontmost ? '' : 'warn'}" style="padding:10px">
+      <div class="recommend-head"><div><div class="recommend-title">${app.frontmost ? '🟢 ' : '앱 '} ${esc(app.name)}</div><div class="recommend-sub">PID ${esc(app.pid || '—')}${app.frontmost ? ' · 현재 활성' : ''}</div></div></div>
+      <div class="recommend-actions">${killBtn}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function renderProcessRows(processes) {
+  if (!processes?.length) return '<div class="item"><div class="item-label">프로세스</div><div class="item-value">표시할 항목이 없어요</div></div>';
+  return processes.map(p => {
+    const name = processName(p);
+    const cpu = Number(p.cpu_percent || 0);
+    const mem = Number(p.mem_percent || 0);
+    const hot = cpu >= 20 ? 'negative' : cpu >= 8 ? 'accent' : 'positive';
+    const killBtn = p.killable
+      ? `<button class="qbtn danger" style="padding:7px 9px;min-height:32px" onclick="confirmKillProcess(${Number(p.pid)}, '${escAttr(name)}')">Kill</button>`
+      : `<button class="qbtn" style="padding:7px 9px;min-height:32px;opacity:.45" disabled>보호</button>`;
+    return `<div class="item" style="align-items:flex-start">
+      <div class="cmd-icon" style="margin-top:2px">${processIcon(p)}</div>
+      <div class="item-stack" style="min-width:0;flex:1">
+        <div class="item-value" style="font-size:11px;word-break:break-all;text-align:left">${esc(name)}</div>
+        <div class="item-sub">PID ${esc(p.pid)} · ${esc(p.user || '')} · ${esc(p.etime || '')}</div>
+        <div class="item-sub"><span class="${hot}">CPU ${esc(cpu.toFixed(cpu % 1 ? 1 : 0))}%</span> · MEM ${esc(mem.toFixed(mem % 1 ? 1 : 0))}%</div>
+      </div>
+      <div style="margin-left:8px">${killBtn}</div>
+    </div>`;
+  }).join('');
+}
+async function loadSystem() {
+  const bar = document.getElementById('system-bar');
+  const content = document.getElementById('system-content');
+  if (!bar || !content) return;
+  bar.innerHTML = `<div class="status-chip warn"><span class="status-dot"></span>불러오는 중...</div>`;
+  content.innerHTML = renderPanelLoading(4);
+  try {
+    const [host, proc, apps, diag, errors] = await Promise.all([
+      api('/api/system-info'),
+      api('/api/system-processes').catch(() => ({ processes: [] })),
+      api('/api/system-apps').catch(() => ({ apps: [] })),
+      api('/api/diagnostics').catch(() => ({})),
+      api('/api/system-errors').catch(() => ({ items: [] })),
+    ]);
+    const memPct = Number(host?.memory?.used_percent);
+    const diskPct = Number(host?.disk?.used_percent);
+    const cpuPct = Number(host?.cpu?.load_percent_estimate);
+    bar.innerHTML = `
+      <div class="status-chip ${cpuPct >= 90 ? 'error' : cpuPct >= 70 ? 'warn' : 'ok'}"><span class="status-dot"></span>CPU ${fmtPct(cpuPct)}</div>
+      <div class="status-chip ${memPct >= 90 ? 'error' : memPct >= 75 ? 'warn' : 'ok'}"><span class="status-dot"></span>MEM ${fmtPct(memPct)}</div>
+      <div class="status-chip ${diskPct >= 92 ? 'error' : diskPct >= 80 ? 'warn' : 'ok'}"><span class="status-dot"></span>DISK ${fmtPct(diskPct)}</div>
+    `;
+    const topProcesses = (proc?.processes || []).slice(0, 24);
+    content.innerHTML = `
+      ${renderOpsHealthCard(diag)}
+      ${renderSystemInfoCard(host)}
+      <div class="section">
+        <div class="section-header"><h2>실행 중인 앱</h2></div>
+        <div class="item"><div class="item-label">표시 기준</div><div class="item-stack"><div class="item-value">Dock/윈도우 앱 ${esc(apps?.count ?? 0)}개</div><div class="item-sub">현재 활성 앱은 초록 점으로 표시합니다</div></div></div>
+        ${renderRunningApps(apps?.apps || [])}
+      </div>
+      <div class="section">
+        <div class="section-header"><h2>실행 중인 프로세스</h2></div>
+        <div class="item"><div class="item-label">표시 기준</div><div class="item-stack"><div class="item-value">CPU 사용량 상위 ${esc(topProcesses.length)}개</div><div class="item-sub">시스템/브리지/gateway 핵심 프로세스는 보호 처리합니다</div></div></div>
+        ${renderProcessRows(topProcesses)}
+      </div>
+      ${renderRecentErrorsCard(errors?.items ? errors : diag?.recent_errors)}
+      <div class="section">
+        <div class="section-header"><h2>빠른 실행</h2></div>
+        <div class="quick-grid"><button class="qbtn reload" onclick="loadSystem()"><span class="qbtn-label">새로고침</span><span class="qbtn-help">맥미니 상태와 프로세스를 다시 불러옵니다</span></button></div>
+      </div>`;
+  } catch (e) {
+    rememberError(e.message, 'system');
+    bar.innerHTML = `<div class="status-chip error"><span class="status-dot"></span>오류</div>`;
+    content.innerHTML = `<div class="section"><div style="padding:16px;color:var(--destructive)">${esc(e.message)}</div></div>`;
+  }
+}
+async function confirmKillProcess(pid, label) {
+  const ok = window.confirm(`이 프로세스를 종료할까요?\n\nPID ${pid}\n${label}\n\n먼저 SIGTERM으로 부드럽게 종료합니다.`);
+  if (!ok) return;
+  try {
+    await api('/api/system-processes/kill', { method: 'POST', body: { pid, signal: 'TERM' } });
+    toast(`PID ${pid} 종료 요청을 보냈어요`, 1600, true);
+    setTimeout(loadSystem, 900);
+  } catch (e) {
+    rememberError(e.message, 'system-kill');
+    toast(`종료 실패: ${e.message}`, 2200, false);
   }
 }
 
